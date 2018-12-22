@@ -6,14 +6,12 @@ preexec () {
 }
 
 cleanup () {
-   curl --keepalive-time 60 -s -XGET http://localhost:8080/delete/$$
+    work delete $$
 }
 
 trap 'cleanup' EXIT
 
 work() {
-    # echo "$2" | curl --keepalive-time 60 -s -XGET --data @- http://localhost:8080/$1/$$
-    # echo $1 $$ "$2" | nc -n 127.0.0.1 3333
     $ROOT/juun.updown $1 $$ "$2"
 }
 _search_start() {
@@ -43,3 +41,5 @@ bind -x '"\e[B": _down'
 bind -x '"\C-p": _up'
 bind -x '"\C-n": _down'
 bind -x '"\C-r": "_search_start"'
+
+$ROOT/juun.service || "failed to start juun"

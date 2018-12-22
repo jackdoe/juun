@@ -3,7 +3,8 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	//	"github.com/takama/daemon"
+
+	"github.com/sevlyar/go-daemon"
 	"io/ioutil"
 	"log"
 	"net"
@@ -36,6 +37,9 @@ func oneLine(history *History, c net.Conn) {
 				history.add(line, pid)
 			}
 
+		case "delete":
+			history.deletePID(pid)
+
 		case "search":
 			if len(line) > 0 {
 				out = history.search(strings.Trim(line, "\n"), pid)
@@ -62,6 +66,19 @@ func listen(history *History, ln net.Listener) {
 	}
 }
 
+func isRunning(pidFile string) bool {
+	if piddata, err := ioutil.ReadFile(pidFile); err == nil {
+		if pid, err := strconv.Atoi(string(piddata)); err == nil {
+			if process, err := os.FindProcess(pid); err == nil {
+				if err := process.Signal(syscall.Signal(0)); err == nil {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func main() {
 	history := NewHistory()
 	usr, err := user.Current()
@@ -71,6 +88,28 @@ func main() {
 
 	histfile := path.Join(usr.HomeDir, ".juun.json")
 	socketPath := path.Join(usr.HomeDir, ".juun.sock")
+	pidFile := path.Join(usr.HomeDir, ".juun.pid")
+	if isRunning(pidFile) {
+		os.Exit(0)
+	}
+
+	cntxt := &daemon.Context{
+		PidFileName: pidFile,
+		PidFilePerm: 0600,
+		LogFileName: path.Join(usr.HomeDir, ".juun.log"),
+		LogFilePerm: 0600,
+		WorkDir:     usr.HomeDir,
+		Umask:       027,
+	}
+
+	d, err := cntxt.Reborn()
+	if err != nil {
+		log.Fatal("Unable to run: ", err)
+	}
+	if d != nil {
+		return
+	}
+	defer cntxt.Release()
 
 	dat, err := ioutil.ReadFile(histfile)
 	if err == nil {
