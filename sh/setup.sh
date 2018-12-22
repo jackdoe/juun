@@ -1,4 +1,9 @@
 ROOT=$(dirname $BASH_SOURCE)
+if [ ${BASH_VERSINFO[0]} -lt 4 ]; then
+  echo "Sorry, you need at least bash-4.0 to use juun."
+  exit 1
+fi
+
 source $ROOT/preexec.sh
 
 preexec () {
