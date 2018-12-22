@@ -20,8 +20,13 @@ requires bash4.+ and golang
 
 ```
 git clone https://github.com/jackdoe/juun
-cd juun
-go run main.go
+cd juun && make
+```
+
+run the service
+
+```
+juun/juun.service
 ```
 
 in some other terminal
@@ -38,6 +43,5 @@ it also hooks to preexec() (copied from https://github.com/rcaloras/bash-preexec
 * proper search
 * run some basic ml to improve the search
 * fix search "ui" to look more like readline's
-
-
+* use protobuf for the history
 

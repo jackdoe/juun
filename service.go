@@ -151,7 +151,7 @@ func (h *History) move(goup bool, pid int) string {
 func (h *History) search(query string, pid int) string {
 	h.lock.Lock()
 	defer h.lock.Unlock()
-	query = strings.Trim(query, " \n")
+	query = strings.Trim(query, " ")
 	if len(query) == 0 {
 		return ""
 	}
@@ -184,7 +184,7 @@ func intOrZero(s string) int {
 func oneLine(history *History, c net.Conn) {
 	input, err := bufio.NewReader(c).ReadString('\n')
 	// cmd pid rest
-	log.Printf("input: %s err: %s", input, err)
+	log.Printf("input: %s", strings.Replace(input, "\n", " ", -1))
 	if err == nil {
 		splitted := strings.SplitN(input, " ", 3)
 		pid := intOrZero(splitted[1])
