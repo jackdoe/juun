@@ -47,7 +47,7 @@ func (t *Terminal) currentCommandId() int {
 }
 
 func (t *Terminal) up() {
-	old := t.Cursor
+	//	old := t.Cursor
 	if t.Cursor > 0 {
 		t.Cursor--
 	} else {
@@ -63,7 +63,7 @@ func (t *Terminal) up() {
 }
 
 func (t *Terminal) down() {
-	old := t.Cursor
+	//	old := t.Cursor
 
 	if t.globalMode {
 		if t.GlobalId >= t.GlobalIdOnStart {
