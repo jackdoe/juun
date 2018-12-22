@@ -1,4 +1,5 @@
-source $(dirname $BASH_SOURCE)/preexec.sh
+ROOT=$(dirname $BASH_SOURCE)
+source $ROOT/preexec.sh
 
 preexec () {
     work "add" "$1"
@@ -9,49 +10,20 @@ cleanup () {
 }
 
 trap 'cleanup' EXIT
-function clearLastLine() {
-        tput cuu 1 && tput el
-}
+
 work() {
-     echo "$2" | curl --keepalive-time 60 -s -XGET --data @- http://localhost:8080/$1/$$
+    # echo "$2" | curl --keepalive-time 60 -s -XGET --data @- http://localhost:8080/$1/$$
     # echo $1 $$ "$2" | nc -n 127.0.0.1 3333
+    $ROOT/juun.updown $1 $$ "$2"
 }
 _search_start() {
-    QUERY=""
-    JUUN_RES=""
-    QUERY=$READLINE_LINE
-    SEARCHING=1
-    JP="juun> "
+    $ROOT/juun.search $$ 2>/tmp/juun.search.$$
+    res=$(cat /tmp/juun.search.$$ | tr -d "\n")
+    rm /tmp/juun.search.$$
 
-    echo -n "$JP"
-    POINT=$READLINE_POINT
-    while read -e -s -p '' -n1 c; do
-        case $c in
-            "")
-                break
-                ;;
-            *)
-                clearLastLine
-                QUERY="$QUERY$c"
-                JUUN_RES=$(work search $QUERY)
-                if [ "$JUUN_RES" = "" ]; then
-                    echo -en "$JP$QUERY";
-                else
-                    echo -en "$JP$JUUN_RES";
-                fi
-                ;;
-        esac
-    done
 
-    clearLastLine
-
-    out=""
-    if [ "$JUUN_RES" = "" ]; then
-        out="$QUERY";
-    else
-        out="$JUUN_RES";
-    fi
-    eval $out
+    READLINE_LINE="$res"
+    READLINE_POINT="${#READLINE_LINE}"
 }
 
 _down() {

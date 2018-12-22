@@ -151,7 +151,10 @@ func (h *History) move(goup bool, pid int) string {
 func (h *History) search(query string, pid int) string {
 	h.lock.Lock()
 	defer h.lock.Unlock()
-
+	query = strings.Trim(query, " \n")
+	if len(query) == 0 {
+		return ""
+	}
 	// XXX: poc, FIXME: 3gram, tfidf, frequency, vw etc ete
 	//	log.Printf("searching for %s", query)
 	t, ok := h.PerTerminal[pid]
