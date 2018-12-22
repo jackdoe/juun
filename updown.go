@@ -8,8 +8,10 @@ import (
 	"os"
 )
 
+const UNIX_SOCKET_PATH = "/tmp/juun.sock"
+
 func query(cmd string, pid string, line string) string {
-	c, err := net.Dial("unix", "/tmp/juun.sock")
+	c, err := net.Dial("unix", UNIX_SOCKET_PATH)
 	if err != nil {
 		log.Fatal("Dial error", err)
 	}

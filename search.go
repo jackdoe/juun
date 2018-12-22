@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const UNIX_SOCKET_PATH = "/tmp/juun.sock"
+
 func filterInput(r rune) (rune, bool) {
 	switch r {
 	// block CtrlZ feature
@@ -19,7 +21,7 @@ func filterInput(r rune) (rune, bool) {
 	return r, true
 }
 func query(pid string, line string) string {
-	c, err := net.Dial("unix", "/tmp/juun.sock")
+	c, err := net.Dial("unix", UNIX_SOCKET_PATH)
 	if err != nil {
 		log.Fatal("Dial error", err)
 	}

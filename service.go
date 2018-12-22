@@ -222,6 +222,8 @@ func listen(history *History, ln net.Listener) {
 
 }
 
+const UNIX_SOCKET_PATH = "/tmp/juun.sock"
+
 func main() {
 	history := NewHistory()
 	usr, err := user.Current()
@@ -241,9 +243,9 @@ func main() {
 	} else {
 		log.Printf("err: %s", err.Error())
 	}
-	log.Printf("%#v %s", history, histfile)
+	log.Printf("loading %s", histfile)
 
-	sock, err := net.Listen("unix", "/tmp/juun.sock")
+	sock, err := net.Listen("unix", UNIX_SOCKET_PATH)
 	if err != nil {
 		log.Fatal("Listen error: ", err)
 	}
