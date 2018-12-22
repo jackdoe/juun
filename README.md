@@ -1,5 +1,7 @@
 # JUUN - history forever
 
+![logo](https://github.com/jackdoe/juun/raw/master/logo.png)
+
 ## work in progress
 
 attempt to fix my bash history rage
@@ -23,20 +25,15 @@ git clone https://github.com/jackdoe/juun
 cd juun && make
 ```
 
-run the service
-
 ```
-juun/juun.service
-```
-
-in some other terminal
-
-```
-source juun/setup.sh
+make install # this will add 'source juun/dist/setup.sh' to .bash_profile
 ```
 
 this will hook up, down and ctrl+r to use juun for up/down history and search
 it also hooks to preexec() (copied from https://github.com/rcaloras/bash-preexec) and every executed command goes into the service
+
+setup.sh will always try to start `juun.service` which listens on $HOME/.juun.sock
+logs are in $HOME/.juun.log and pid is $HOME/.juun.pid
 
 ## scoring
 
@@ -58,4 +55,3 @@ the time score is `-log10(now - command.timestamp)`
 * fix search "ui" to look more like readline's
 * use protobuf for the history
 * limit the amount of data in the indexes (archive)
-
