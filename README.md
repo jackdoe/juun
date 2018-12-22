@@ -54,10 +54,8 @@ the time score is `-log10(now - command.timestamp)`
 
 ## todo
 
-* proper search
 * run some basic ml to improve the search
 * fix search "ui" to look more like readline's
 * use protobuf for the history
-* pick only one interface (now it listens on tcp 3333, unix socket on /tmp/juun.sock and http on 8080)
-
+* limit the amount of data in the indexes (archive)
 
