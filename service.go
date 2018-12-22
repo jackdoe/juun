@@ -3,21 +3,64 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"os/user"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 )
+
+type InvertedIndex struct {
+	Postings  map[string][]uint64
+	TotalDocs int32
+}
+
+func (x *InvertedIndex) encode(docId int, freq int) uint64 {
+	return uint64(docId)<<uint64(16) | uint64(freq)
+}
+
+func (x *InvertedIndex) decode(p uint64) (int, int) {
+	docId := p >> 16
+	freq := p & 0xFFFF
+	return int(docId), int(freq)
+}
+func (x *InvertedIndex) term(field string, term string) Query {
+	t := fmt.Sprintf("%s_%s", field, term)
+	postings, ok := x.Postings[t]
+	if ok {
+		//		log.Printf("%s - %#v", t, postings)
+		return NewTerm(t, x.TotalDocs, postings)
+	}
+	//	log.Printf("%s - missing", t)
+	return NewTerm(t, x.TotalDocs, []uint64{})
+}
+
+func (x *InvertedIndex) add(docId int, term string) {
+	postings, ok := x.Postings[term]
+	if ok {
+		last := postings[len(postings)-1]
+		lastDocId, lastFreq := x.decode(last)
+		if lastDocId == docId {
+			postings[len(postings)-1] = x.encode(docId, lastFreq+1)
+		} else {
+			x.Postings[term] = append(x.Postings[term], x.encode(docId, 1))
+		}
+	} else {
+		x.Postings[term] = []uint64{x.encode(docId, 1)}
+	}
+}
 
 type HistoryLine struct {
 	Line      string
@@ -29,12 +72,14 @@ type HistoryLine struct {
 type History struct {
 	Lines       []*HistoryLine
 	Index       map[string]int
+	Inverted    *InvertedIndex
 	PerTerminal map[int]*Terminal
 	lock        sync.Mutex
 }
 
 type Terminal struct {
 	Commands        []int
+	CommandsSet     map[int]bool
 	Cursor          int
 	GlobalIdOnStart int
 	GlobalId        int
@@ -87,6 +132,10 @@ func NewHistory() *History {
 		Lines:       []*HistoryLine{}, // ordered list of commands
 		Index:       map[string]int{}, // XXX: dont store the strings twice
 		PerTerminal: map[int]*Terminal{},
+		Inverted: &InvertedIndex{
+			Postings:  map[string][]uint64{},
+			TotalDocs: 0,
+		},
 	}
 }
 
@@ -97,9 +146,22 @@ func (h *History) deletePID(pid int) {
 	delete(h.PerTerminal, pid)
 }
 
+func tokenize(s string) []string {
+	return strings.Split(s, " ")
+}
+
+func edge(text string) []string {
+	out := []string{}
+	for i := 0; i < len(text); i++ {
+		out = append(out, text[:i+1])
+	}
+	return out
+}
+
 func (h *History) add(line string, pid int) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
+
 	now := time.Now().UnixNano()
 	id, ok := h.Index[line]
 	if ok {
@@ -116,6 +178,13 @@ func (h *History) add(line string, pid int) {
 		}
 		h.Lines = append(h.Lines, v)
 		h.Index[line] = v.Id
+		for _, s := range tokenize(line) {
+			h.Inverted.add(id, fmt.Sprintf("t_%s", s))
+			for _, e := range edge(s) {
+				h.Inverted.add(id, fmt.Sprintf("e_%s", e))
+			}
+		}
+		h.Inverted.TotalDocs++
 	}
 
 	t, ok := h.PerTerminal[pid]
@@ -125,11 +194,13 @@ func (h *History) add(line string, pid int) {
 			Cursor:          0,
 			GlobalId:        id,
 			GlobalIdOnStart: id,
+			CommandsSet:     map[int]bool{},
 		}
 		h.PerTerminal[pid] = t
 	}
 	t.Cursor = len(t.Commands)
 	t.Commands = append(t.Commands, id)
+	t.CommandsSet[id] = true
 }
 
 func (h *History) move(goup bool, pid int) string {
@@ -148,30 +219,65 @@ func (h *History) move(goup bool, pid int) string {
 	return h.Lines[t.currentCommandId()].Line
 }
 
-func (h *History) search(query string, pid int) string {
+type scored struct {
+	docId int32
+	score float32
+}
+
+type ByScore []scored
+
+func (s ByScore) Len() int {
+	return len(s)
+}
+func (s ByScore) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s ByScore) Less(i, j int) bool {
+	return s[j].score < s[i].score
+}
+
+func (h *History) search(text string, pid int) string {
 	h.lock.Lock()
 	defer h.lock.Unlock()
-	query = strings.Trim(query, " ")
-	if len(query) == 0 {
+	text = strings.Trim(text, " ")
+	if len(text) == 0 {
 		return ""
 	}
-	// XXX: poc, FIXME: 3gram, tfidf, frequency, vw etc ete
-	//	log.Printf("searching for %s", query)
-	t, ok := h.PerTerminal[pid]
-	if ok {
-		for i := len(t.Commands) - 1; i >= 0; i-- {
-			c := h.Lines[t.Commands[i]]
-			if strings.Contains(c.Line, query) {
-				return c.Line
-			}
-		}
+
+	terms := []Query{}
+	for _, s := range tokenize(text) {
+		terms = append(terms, h.Inverted.term("e", s))
 	}
 
-	for i := len(h.Lines) - 1; i >= 0; i-- {
-		c := h.Lines[i]
-		if strings.Contains(c.Line, query) {
-			return c.Line
+	query := NewBoolOrQuery(terms)
+	score := []scored{}
+	terminal, hasTerminal := h.PerTerminal[pid]
+
+	now := time.Now().UnixNano()
+	for query.Next() != NO_MORE {
+		id := query.GetDocId()
+		line := h.Lines[id]
+
+		tfidf := query.Score()
+
+		timeScore := float32(-math.Log10(1 + float64(now-line.TimeStamp)))
+
+		terminalScore := float32(0)
+		if hasTerminal {
+			_, hasCommandInHistory := terminal.CommandsSet[int(id)]
+			if hasCommandInHistory {
+				terminalScore = 100
+			}
 		}
+
+		log.Printf("tfidf: %f timeScore: %f terminalScore:%f %s", tfidf, timeScore, terminalScore, line.Line)
+		s := tfidf + timeScore + terminalScore
+		score = append(score, scored{query.GetDocId(), s})
+	}
+	sort.Sort(ByScore(score))
+
+	if len(score) > 0 {
+		return h.Lines[score[0].docId].Line
 	}
 	return ""
 }
@@ -210,6 +316,7 @@ func oneLine(history *History, c net.Conn) {
 	}
 	c.Close()
 }
+
 func listen(history *History, ln net.Listener) {
 	for {
 		fd, err := ln.Accept()
@@ -219,7 +326,6 @@ func listen(history *History, ln net.Listener) {
 
 		go oneLine(history, fd)
 	}
-
 }
 
 const UNIX_SOCKET_PATH = "/tmp/juun.sock"
@@ -234,7 +340,6 @@ func main() {
 	histfile := path.Join(usr.HomeDir, ".juun.json")
 	dat, err := ioutil.ReadFile(histfile)
 	if err == nil {
-		log.Printf("read")
 		err = json.Unmarshal(dat, history)
 		if err != nil {
 			log.Printf("err: %s", err.Error())
