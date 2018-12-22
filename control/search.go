@@ -3,14 +3,9 @@ package main
 import (
 	"fmt"
 	"github.com/chzyer/readline"
-	"io/ioutil"
-	"log"
-	"net"
 	"os"
 	"strings"
 )
-
-const UNIX_SOCKET_PATH = "/tmp/juun.sock"
 
 func filterInput(r rune) (rune, bool) {
 	switch r {
@@ -19,20 +14,6 @@ func filterInput(r rune) (rune, bool) {
 		return r, false
 	}
 	return r, true
-}
-func query(pid string, line string) string {
-	c, err := net.Dial("unix", UNIX_SOCKET_PATH)
-	if err != nil {
-		log.Fatal("Dial error", err)
-	}
-	defer c.Close()
-	_, err = c.Write([]byte(fmt.Sprintf("search %s %s\n", pid, line)))
-	if err != nil {
-		log.Fatal("Write error:", err)
-	}
-
-	buf, _ := ioutil.ReadAll(c)
-	return string(buf)
 }
 
 func main() {
@@ -51,7 +32,7 @@ func main() {
 	result := ""
 	cfg.SetListener(func(line []rune, pos int, key rune) (newLine []rune, newPos int, ok bool) {
 		if line != nil {
-			result = query(os.Args[1], string(line))
+			result = query("search", os.Args[1], string(line))
 			rl.SetPrompt(fmt.Sprintf("%s \033[31m»\033[0m ", strings.Replace(result, "\n", "", -1)))
 		}
 		rl.Refresh()

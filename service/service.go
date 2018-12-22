@@ -4,12 +4,10 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
 	"math"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"os/user"
@@ -328,8 +326,6 @@ func listen(history *History, ln net.Listener) {
 	}
 }
 
-const UNIX_SOCKET_PATH = "/tmp/juun.sock"
-
 func main() {
 	history := NewHistory()
 	usr, err := user.Current()
@@ -338,6 +334,8 @@ func main() {
 	}
 
 	histfile := path.Join(usr.HomeDir, ".juun.json")
+	socketPath := path.Join(usr.HomeDir, ".juun.sock")
+
 	dat, err := ioutil.ReadFile(histfile)
 	if err == nil {
 		err = json.Unmarshal(dat, history)
@@ -348,14 +346,10 @@ func main() {
 	} else {
 		log.Printf("err: %s", err.Error())
 	}
-	log.Printf("loading %s", histfile)
+	log.Printf("loading %s, listening to: %s", histfile, socketPath)
 
-	sock, err := net.Listen("unix", UNIX_SOCKET_PATH)
-	if err != nil {
-		log.Fatal("Listen error: ", err)
-	}
-
-	tcp, err := net.Listen("tcp", ":3333")
+	syscall.Unlink(socketPath)
+	sock, err := net.Listen("unix", socketPath)
 	if err != nil {
 		log.Fatal("Listen error: ", err)
 	}
@@ -376,58 +370,8 @@ func main() {
 			log.Printf("%s", err.Error())
 		}
 		sock.Close()
-		tcp.Close()
 		os.Exit(0)
 	}()
 
-	go listen(history, sock)
-	go listen(history, tcp)
-
-	r := gin.Default()
-
-	r.GET("/down/:pid", func(c *gin.Context) {
-		pid := intOrZero(c.Param("pid"))
-		c.String(http.StatusOK, "%s\n", history.move(false, pid))
-	})
-
-	r.GET("/up/:pid", func(c *gin.Context) {
-		pid := intOrZero(c.Param("pid"))
-		c.String(http.StatusOK, "%s\n", history.move(true, pid))
-	})
-
-	r.GET("/delete/:pid", func(c *gin.Context) {
-		pid := intOrZero(c.Param("pid"))
-		history.deletePID(pid)
-		c.String(http.StatusOK, "ok: %d\n", pid)
-	})
-
-	r.GET("/add/:pid", func(c *gin.Context) {
-		pid := intOrZero(c.Param("pid"))
-		line, err := c.GetRawData()
-		if err != nil {
-			c.String(http.StatusBadRequest, "err: %s\n", err.Error())
-			return
-		}
-		if len(line) > 0 {
-			history.add(string(line), pid)
-		}
-		//              log.Printf("adding %s", line)
-		c.String(http.StatusOK, "ok: %s\n", line)
-	})
-
-	r.GET("/search/:pid", func(c *gin.Context) {
-		pid := intOrZero(c.Param("pid"))
-		line, err := c.GetRawData()
-		if err != nil {
-			c.String(http.StatusBadRequest, "err: %s\n", err.Error())
-			return
-		}
-		c.String(http.StatusOK, history.search(string(line), pid))
-	})
-	r.GET("/dump", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"history": history,
-		})
-	})
-	r.Run()
+	listen(history, sock)
 }

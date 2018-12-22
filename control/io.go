@@ -5,13 +5,17 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
-	"os"
+	"os/user"
+	"path"
 )
 
-const UNIX_SOCKET_PATH = "/tmp/juun.sock"
-
 func query(cmd string, pid string, line string) string {
-	c, err := net.Dial("unix", UNIX_SOCKET_PATH)
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	socketPath := path.Join(usr.HomeDir, ".juun.sock")
+	c, err := net.Dial("unix", socketPath)
 	if err != nil {
 		log.Fatal("Dial error", err)
 	}
@@ -23,8 +27,4 @@ func query(cmd string, pid string, line string) string {
 
 	buf, _ := ioutil.ReadAll(c)
 	return string(buf)
-}
-
-func main() {
-	fmt.Printf("%s", query(os.Args[1], os.Args[2], os.Args[3]))
 }
