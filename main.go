@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -28,7 +30,7 @@ type History struct {
 	Lines       []*HistoryLine
 	Index       map[string]int
 	PerTerminal map[int]*Terminal
-	sync.Mutex
+	lock        sync.Mutex
 }
 
 type Terminal struct {
@@ -89,12 +91,15 @@ func NewHistory() *History {
 }
 
 func (h *History) deletePID(pid int) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	delete(h.PerTerminal, pid)
 }
 
 func (h *History) add(line string, pid int) {
-	h.Lock()
-	defer h.Unlock()
+	h.lock.Lock()
+	defer h.lock.Unlock()
 	now := time.Now().UnixNano()
 	id, ok := h.Index[line]
 	if ok {
@@ -128,6 +133,9 @@ func (h *History) add(line string, pid int) {
 }
 
 func (h *History) move(goup bool, pid int) string {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	t, ok := h.PerTerminal[pid]
 	if !ok {
 		return ""
@@ -141,6 +149,9 @@ func (h *History) move(goup bool, pid int) string {
 }
 
 func (h *History) search(query string, pid int) string {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
 	// XXX: poc, FIXME: 3gram, tfidf, frequency, vw etc ete
 	//	log.Printf("searching for %s", query)
 	t, ok := h.PerTerminal[pid]
@@ -167,6 +178,47 @@ func intOrZero(s string) int {
 	return pid
 }
 
+func oneLine(history *History, c net.Conn) {
+	input, err := bufio.NewReader(c).ReadString('\n')
+	// cmd pid rest
+	log.Printf("input: %s err: %s", input, err)
+	if err == nil {
+		splitted := strings.SplitN(input, " ", 3)
+		pid := intOrZero(splitted[1])
+		line := splitted[2]
+		out := ""
+		switch splitted[0] {
+		case "add":
+			if len(line) > 0 {
+				history.add(line, pid)
+			}
+
+		case "search":
+			if len(line) > 0 {
+				out = history.search(strings.Trim(line, "\n"), pid)
+			}
+		case "up":
+			out = history.move(true, pid)
+		case "down":
+			out = history.move(false, pid)
+
+		}
+		c.Write([]byte(out))
+	}
+	c.Close()
+}
+func listen(history *History, ln net.Listener) {
+	for {
+		fd, err := ln.Accept()
+		if err != nil {
+			log.Fatal("accept error:", err)
+		}
+
+		go oneLine(history, fd)
+	}
+
+}
+
 func main() {
 	history := NewHistory()
 	usr, err := user.Current()
@@ -177,22 +229,49 @@ func main() {
 	histfile := path.Join(usr.HomeDir, ".juun.json")
 	dat, err := ioutil.ReadFile(histfile)
 	if err == nil {
-		err = json.Unmarshal(dat, &history)
-		if err == nil {
+		log.Printf("read")
+		err = json.Unmarshal(dat, history)
+		if err != nil {
+			log.Printf("err: %s", err.Error())
 			history = NewHistory()
 		}
+	} else {
+		log.Printf("err: %s", err.Error())
+	}
+	log.Printf("%#v %s", history, histfile)
+
+	sock, err := net.Listen("unix", "/tmp/juun.sock")
+	if err != nil {
+		log.Fatal("Listen error: ", err)
+	}
+
+	tcp, err := net.Listen("tcp", ":3333")
+	if err != nil {
+		log.Fatal("Listen error: ", err)
 	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
 		<-sigs
+		log.Printf("closing")
 		d1, err := json.Marshal(history)
 		if err == nil {
-			ioutil.WriteFile(histfile, d1, 0600)
+			err := ioutil.WriteFile(histfile, d1, 0600)
+			if err != nil {
+				log.Printf("%s", err.Error())
+			}
+		} else {
+			log.Printf("%s", err.Error())
 		}
+		sock.Close()
+		tcp.Close()
 		os.Exit(0)
 	}()
+
+	go listen(history, sock)
+	go listen(history, tcp)
 
 	r := gin.Default()
 
@@ -222,7 +301,7 @@ func main() {
 		if len(line) > 0 {
 			history.add(string(line), pid)
 		}
-		//		log.Printf("adding %s", line)
+		//              log.Printf("adding %s", line)
 		c.String(http.StatusOK, "ok: %s\n", line)
 	})
 
