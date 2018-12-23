@@ -26,30 +26,29 @@ if [[ -n "$BASH" ]]; then
     }
 
     _search_start() {
+
         $ROOT/juun.search $$ 2>/tmp/juun.search.$$
         rc=$?
         res=$(cat /tmp/juun.search.$$)
         rm /tmp/juun.search.$$
         if [ $rc -eq 0 ]; then
             echo $res
+            # FIXME: add it to the normal history?
             eval "$res"
             work "add" "$res"
-            READLINE_LINE=""
-            READLINE_POINT=""
-        else
-            READLINE_LINE="$res"
-            READLINE_POINT="${#READLINE_LINE}"
         fi
+        READLINE_LINE=""
+        READLINE_POINT=""
     }
 
     _down() {
-        res=$(work down $READLINE_LINE)
+        res=$(work down down)
         READLINE_LINE="$res"
         READLINE_POINT="${#READLINE_LINE}"
     }
 
     _up() {
-        res=$(work up $READLINE_LINE)
+        res=$(work up up)
         READLINE_LINE="$res"
         READLINE_POINT="${#READLINE_LINE}"
     }
@@ -71,7 +70,8 @@ elif [[ -n "$ZSH_VERSION" ]]; then
         $ROOT/juun.updown $1 $$ "$2"
     }
     preexec () {
-        work "add" "$1"
+        cmd=$1
+        work "add" "$cmd"
     }
     _search_start() {
         zle -I
@@ -80,10 +80,13 @@ elif [[ -n "$ZSH_VERSION" ]]; then
         res=$(cat /tmp/juun.search.$$)
         rm /tmp/juun.search.$$
 
-        BUFFER="$res"
-        CURSOR=${#BUFFER}
         if [ $rc -eq 0 ]; then
+            BUFFER="$res"
+            CURSOR=${#BUFFER}
+
             zle accept-line
+        else
+            BUFFER=""
         fi
     }
 

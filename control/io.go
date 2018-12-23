@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -20,11 +21,19 @@ func query(cmd string, pid string, line string) string {
 		log.Fatal("Dial error", err)
 	}
 	defer c.Close()
-	_, err = c.Write([]byte(fmt.Sprintf("%s %s %s\n", cmd, pid, line)))
+	header := make([]byte, 4)
+	data := []byte(fmt.Sprintf("%s %s %s", cmd, pid, line))
+	binary.LittleEndian.PutUint32(header, uint32(len(data)))
+
+	_, err = c.Write(header)
 	if err != nil {
 		log.Fatal("Write error:", err)
 	}
 
+	_, err = c.Write(data)
+	if err != nil {
+		log.Fatal("Write error:", err)
+	}
 	buf, _ := ioutil.ReadAll(c)
 	return string(buf)
 }

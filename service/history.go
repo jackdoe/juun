@@ -45,7 +45,8 @@ func (h *History) deletePID(pid int) {
 }
 
 func tokenize(s string) []string {
-	return strings.Split(s, " ")
+	trimmed := strings.Replace(s, "\n", " ", -1)
+	return strings.Split(trimmed, " ")
 }
 
 func edge(text string) []string {
@@ -102,18 +103,35 @@ func (h *History) add(line string, pid int) {
 	t.CommandsSet[id] = true
 }
 
-func (h *History) move(goup bool, pid int) string {
+func (h *History) move(goUP bool, pid int) string {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	t, ok := h.PerTerminal[pid]
-	if !ok {
+	if len(h.Lines) == 0 {
 		return ""
 	}
-	if goup {
+
+	t, ok := h.PerTerminal[pid]
+	if !ok {
+		id := len(h.Lines) - 1
+		t = &Terminal{
+			Commands:        []int{},
+			Cursor:          0,
+			GlobalId:        id,
+			GlobalIdOnStart: id,
+			CommandsSet:     map[int]bool{},
+		}
+		h.PerTerminal[pid] = t
+	}
+	hasDownToGo := false
+	if goUP {
+		hasDownToGo = true
 		t.up()
 	} else {
-		t.down()
+		hasDownToGo = t.down()
+	}
+	if !hasDownToGo {
+		return ""
 	}
 	return h.Lines[t.currentCommandId()].Line
 }

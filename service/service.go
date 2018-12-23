@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bufio"
+	"encoding/binary"
 	"encoding/json"
-
 	"github.com/sevlyar/go-daemon"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -23,14 +23,29 @@ func intOrZero(s string) int {
 }
 
 func oneLine(history *History, c net.Conn) {
-	input, err := bufio.NewReader(c).ReadString('\n')
+	hdr := make([]byte, 4)
+	_, err := io.ReadFull(c, hdr)
+	if err != nil {
+		c.Close()
+		return
+	}
+	dataLen := binary.LittleEndian.Uint32(hdr)
+	data := make([]byte, dataLen)
+	_, err = io.ReadFull(c, data)
+	if err != nil {
+		c.Close()
+		return
+	}
+
+	input := string(data)
 	// cmd pid rest
-	log.Printf("input: %s", strings.Replace(input, "\n", " ", -1))
+
 	if err == nil {
 		splitted := strings.SplitN(input, " ", 3)
 		pid := intOrZero(splitted[1])
 		line := splitted[2]
 		out := ""
+		log.Printf("datalen: %d pid: %d line: %s", dataLen, pid, line)
 		switch splitted[0] {
 		case "add":
 			if len(line) > 0 {
@@ -41,8 +56,9 @@ func oneLine(history *History, c net.Conn) {
 			history.deletePID(pid)
 
 		case "search":
+			line = strings.Replace(line, "\n", "", -1)
 			if len(line) > 0 {
-				out = history.search(strings.Trim(line, "\n"), pid)
+				out = history.search(line, pid)
 			}
 		case "up":
 			out = history.move(true, pid)
