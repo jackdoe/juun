@@ -88,19 +88,22 @@ func (h *History) add(line string, pid int) {
 
 	t, ok := h.perTerminal[pid]
 	if !ok {
+		// when new terminal starts we want its GlobalID to point just before the command was added
+		// otherwise it points to the first command and we have to up()up() twice to go to the global history
+		startingId := id
+		if startingId > 0 {
+			startingId--
+		}
 		t = &Terminal{
 			Commands:        []int{},
 			Cursor:          0,
-			GlobalId:        id,
-			GlobalIdOnStart: id,
+			GlobalId:        startingId,
+			GlobalIdOnStart: startingId,
 			CommandsSet:     map[int]bool{},
 		}
 		h.perTerminal[pid] = t
 	}
-
-	t.Commands = append(t.Commands, id)
-	t.Cursor = len(t.Commands)
-	t.CommandsSet[id] = true
+	t.add(id)
 }
 
 func (h *History) gotoend(pid int) {
@@ -113,14 +116,17 @@ func (h *History) gotoend(pid int) {
 	}
 	t.end()
 }
+func (h *History) up(pid int, buf string) string {
+	return h.move(true, pid, buf)
+}
 
-func (h *History) move(goUP bool, pid int) string {
+func (h *History) down(pid int, buf string) string {
+	return h.move(false, pid, buf)
+}
+
+func (h *History) move(goUP bool, pid int, buf string) string {
 	h.lock.Lock()
 	defer h.lock.Unlock()
-
-	if len(h.Lines) == 0 {
-		return ""
-	}
 
 	t, ok := h.perTerminal[pid]
 	if !ok {
@@ -134,17 +140,28 @@ func (h *History) move(goUP bool, pid int) string {
 		}
 		h.perTerminal[pid] = t
 	}
-	hasDownToGo := false
-	if goUP {
-		hasDownToGo = true
-		t.up()
-	} else {
-		hasDownToGo = t.down()
+
+	if goUP && t.isAtEnd() {
+		t.CurrentBufferBeforeMove = buf
 	}
-	if !hasDownToGo {
+
+	var can bool
+	var id int
+	if goUP {
+		id, can = t.up()
+	} else {
+		id, can = t.down()
+
+		if !can {
+			return t.CurrentBufferBeforeMove
+		}
+	}
+
+	if len(h.Lines) == 0 {
 		return ""
 	}
-	return h.Lines[t.currentCommandId()].Line
+
+	return h.Lines[id].Line
 }
 
 type scored struct {

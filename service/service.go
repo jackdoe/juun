@@ -38,14 +38,14 @@ func oneLine(history *History, c net.Conn) {
 	}
 
 	input := string(data)
-	// cmd pid rest
 
+	// cmd pid rest
 	if err == nil {
 		splitted := strings.SplitN(input, " ", 3)
 		pid := intOrZero(splitted[1])
 		line := splitted[2]
 		out := ""
-		log.Printf("datalen: %d pid: %d line: %s", dataLen, pid, line)
+		log.Printf("datalen: %d pid: %d action %s line: %s", dataLen, pid, splitted[0], line)
 		switch splitted[0] {
 		case "add":
 			if len(line) > 0 {
@@ -64,9 +64,9 @@ func oneLine(history *History, c net.Conn) {
 				out = history.search(line, pid)
 			}
 		case "up":
-			out = history.move(true, pid)
+			out = history.up(pid, line)
 		case "down":
-			out = history.move(false, pid)
+			out = history.down(pid, line)
 
 		}
 		c.Write([]byte(out))

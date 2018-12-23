@@ -47,13 +47,13 @@ if [[ -n "$BASH" ]]; then
     }
 
     _down() {
-        res=$(work down down)
+        res=$(work down $READLINE_LINE)
         READLINE_LINE="$res"
         READLINE_POINT="${#READLINE_LINE}"
     }
 
     _up() {
-        res=$(work up up)
+        res=$(work up $READLINE_LINE)
         READLINE_LINE="$res"
         READLINE_POINT="${#READLINE_LINE}"
     }
@@ -104,13 +104,13 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     }
 
     _down() {
-        BUFFER=$(work down down)
+        BUFFER=$(work down $BUFFER)
         CURSOR=${#BUFFER}
     }
 
 
     _up() {
-        BUFFER=$(work up up)
+        BUFFER=$(work up $BUFFER)
         CURSOR=${#BUFFER}
     }
 
