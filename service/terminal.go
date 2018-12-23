@@ -63,3 +63,7 @@ func (t *Terminal) down() bool {
 	log.Printf("DOWN from %d to %d global id %d current id: %d", old, t.Cursor, t.GlobalId, t.currentCommandId())
 	return success
 }
+
+func (t *Terminal) end() {
+	t.Cursor = len(t.Commands)
+}

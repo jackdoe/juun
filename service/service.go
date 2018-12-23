@@ -52,6 +52,9 @@ func oneLine(history *History, c net.Conn) {
 				history.add(line, pid)
 			}
 
+		case "end":
+			history.gotoend(pid)
+
 		case "delete":
 			history.deletePID(pid)
 

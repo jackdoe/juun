@@ -21,7 +21,7 @@ type History struct {
 	Lines       []*HistoryLine
 	Index       map[string]int
 	Inverted    *InvertedIndex
-	PerTerminal map[int]*Terminal
+	perTerminal map[int]*Terminal
 	lock        sync.Mutex
 }
 
@@ -29,7 +29,7 @@ func NewHistory() *History {
 	return &History{
 		Lines:       []*HistoryLine{}, // ordered list of commands
 		Index:       map[string]int{}, // XXX: dont store the strings twice
-		PerTerminal: map[int]*Terminal{},
+		perTerminal: map[int]*Terminal{},
 		Inverted: &InvertedIndex{
 			Postings:  map[string][]uint64{},
 			TotalDocs: 0,
@@ -41,7 +41,7 @@ func (h *History) deletePID(pid int) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	delete(h.PerTerminal, pid)
+	delete(h.perTerminal, pid)
 }
 
 func tokenize(s string) []string {
@@ -86,7 +86,7 @@ func (h *History) add(line string, pid int) {
 		h.Inverted.TotalDocs++
 	}
 
-	t, ok := h.PerTerminal[pid]
+	t, ok := h.perTerminal[pid]
 	if !ok {
 		t = &Terminal{
 			Commands:        []int{},
@@ -95,12 +95,23 @@ func (h *History) add(line string, pid int) {
 			GlobalIdOnStart: id,
 			CommandsSet:     map[int]bool{},
 		}
-		h.PerTerminal[pid] = t
+		h.perTerminal[pid] = t
 	}
 
-	t.Cursor = len(t.Commands)
 	t.Commands = append(t.Commands, id)
+	t.Cursor = len(t.Commands)
 	t.CommandsSet[id] = true
+}
+
+func (h *History) gotoend(pid int) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	t, ok := h.perTerminal[pid]
+	if !ok {
+		return
+	}
+	t.end()
 }
 
 func (h *History) move(goUP bool, pid int) string {
@@ -111,7 +122,7 @@ func (h *History) move(goUP bool, pid int) string {
 		return ""
 	}
 
-	t, ok := h.PerTerminal[pid]
+	t, ok := h.perTerminal[pid]
 	if !ok {
 		id := len(h.Lines) - 1
 		t = &Terminal{
@@ -121,7 +132,7 @@ func (h *History) move(goUP bool, pid int) string {
 			GlobalIdOnStart: id,
 			CommandsSet:     map[int]bool{},
 		}
-		h.PerTerminal[pid] = t
+		h.perTerminal[pid] = t
 	}
 	hasDownToGo := false
 	if goUP {
@@ -168,7 +179,7 @@ func (h *History) search(text string, pid int) string {
 
 	query := NewBoolOrQuery(terms)
 	score := []scored{}
-	terminal, hasTerminal := h.PerTerminal[pid]
+	terminal, hasTerminal := h.perTerminal[pid]
 
 	now := time.Now().UnixNano()
 	for query.Next() != NO_MORE {

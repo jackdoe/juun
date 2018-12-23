@@ -12,8 +12,13 @@ if [[ -n "$BASH" ]]; then
     source $ROOT/preexec.sh
 
     preexec () {
-        work "add" "$1"
+        work add "$1"
     }
+
+    precmd () {
+        work end end
+    }
+
 
     cleanup () {
         work delete $$
@@ -62,17 +67,24 @@ if [[ -n "$BASH" ]]; then
     $ROOT/juun.service || "failed to start juun"
 elif [[ -n "$ZSH_VERSION" ]]; then
     ROOT=$(dirname $0:A)
+
     cleanup () {
         work delete $$
     }
     trap 'cleanup' EXIT
+
     work() {
         $ROOT/juun.updown $1 $$ "$2"
     }
+
     preexec () {
-        cmd=$1
-        work "add" "$cmd"
+        work add "$1"
     }
+
+    precmd () {
+        work end end
+    }
+
     _search_start() {
         zle -I
         </dev/tty $ROOT/juun.search $$ 2>/tmp/juun.search.$$
@@ -86,7 +98,8 @@ elif [[ -n "$ZSH_VERSION" ]]; then
             work "add" "$res"
             zle accept-line
         else
-            BUFFER=""
+            BUFFER="$res"
+            CURSOR=${#BUFFER}
         fi
     }
 
@@ -94,6 +107,8 @@ elif [[ -n "$ZSH_VERSION" ]]; then
         BUFFER=$(work down down)
         CURSOR=${#BUFFER}
     }
+
+
     _up() {
         BUFFER=$(work up up)
         CURSOR=${#BUFFER}
@@ -108,6 +123,8 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     bindkey "^p" _up
     bindkey "^n" _down
     bindkey "^R" _search_start
+
+    $ROOT/juun.service || "failed to start juun"
 else
     echo "Sorry, you need bash-4.+ or zsh to use juun."
     exit 1
