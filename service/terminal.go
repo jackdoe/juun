@@ -12,20 +12,18 @@ type Terminal struct {
 	GlobalId                int
 	CurrentBufferBeforeMove string
 	globalMode              bool
+	direction               int
 }
 
-func (t *Terminal) currentCommandId() int {
-	if len(t.Commands) == 0 {
-		return 0
-	}
-
-	return t.Commands[t.Cursor]
-}
+const DIR_UP = 1
+const DIR_DOWN = 2
+const DIR_NONE = 3
 
 func (t *Terminal) add(id int) {
 	t.Commands = append(t.Commands, id)
 	t.CommandsSet[id] = true
 	t.end()
+	t.direction = DIR_NONE
 }
 
 // [ g 1 2 3 4 5 ]
@@ -37,6 +35,8 @@ func (t *Terminal) add(id int) {
 // [ g 1 2 3 4 5 ]
 //             +
 func (t *Terminal) up() (int, bool) {
+	wasDOWN := t.direction == DIR_DOWN
+	t.direction = DIR_UP
 
 	if len(t.Commands) == 0 {
 		return 0, false
@@ -45,13 +45,15 @@ func (t *Terminal) up() (int, bool) {
 	if t.Cursor > 0 {
 		id := t.Commands[t.Cursor-1]
 		t.Cursor--
+		if wasDOWN && t.Cursor < len(t.Commands)-2 {
+			id = t.Commands[t.Cursor+1]
+		}
 		return id, true
 	} else {
 		t.globalMode = true
 		if t.GlobalId > 0 {
 			id := t.GlobalId
 			t.GlobalId--
-			//			t.log("can go up")
 			return id, true
 		}
 
@@ -60,20 +62,21 @@ func (t *Terminal) up() (int, bool) {
 }
 
 // [ g 1 2 3 4 5 ]
-//             +
+//               +
 // up
 // [ g 1 2 3 4 5 ]
-//           +
+//             +
 // down
 // [ g 1 2 3 4 5 ]
-//             +
+//               +
 func (t *Terminal) down() (int, bool) {
 	if len(t.Commands) == 0 {
 		return 0, false
 	}
+	wasUP := t.direction == DIR_UP
+	t.direction = DIR_DOWN
 	if t.globalMode {
 		if t.GlobalId < t.GlobalIdOnStart {
-			//			id := t.GlobalId
 			t.GlobalId++
 			return t.GlobalId, true
 		} else {
@@ -81,9 +84,14 @@ func (t *Terminal) down() (int, bool) {
 			return t.Commands[0], true
 		}
 	}
+
 	if t.Cursor < len(t.Commands)-1 {
-		id := t.Commands[t.Cursor]
 		t.Cursor++
+		id := t.Commands[t.Cursor]
+
+		if wasUP {
+			id = t.Commands[t.Cursor]
+		}
 		return id, true
 	}
 	//	t.log("cant go down")

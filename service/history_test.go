@@ -108,5 +108,17 @@ func TestGlobalHistory(t *testing.T) {
 	must(t, h.down(3, ""), "zs 3")
 	must(t, h.down(3, ""), "zs x")
 	must(t, h.down(3, ""), "incomplete-before-up")
+}
 
+func TestUpDownUp(t *testing.T) {
+	h := NewHistory()
+	h.add("ps 1", 1)
+	h.add("ps 2", 1)
+	h.add("ps 3", 1)
+
+	must(t, h.up(1, "incomplete-before-up"), "ps 3")
+	must(t, h.up(1, ""), "ps 2")
+	must(t, h.down(1, ""), "ps 3")
+	must(t, h.down(1, ""), "incomplete-before-up")
+	must(t, h.up(1, ""), "ps 3")
 }
