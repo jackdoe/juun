@@ -18,6 +18,16 @@ this annoys me so much in the current history(1) it is unbelivable
 
 ## install/run
 
+### with homebrew:
+
+```
+brew tap jackdoe/tap
+brew install juun
+```
+(then you need to follow the instructions)
+
+
+### from source
 requires bash4.+ and golang
 
 ```
