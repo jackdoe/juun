@@ -44,7 +44,12 @@ func (t *Terminal) up() (int, bool) {
 	//	defer t.log("  -> after up")
 
 	delta := 1
+	wasDOWN := t.direction == DIR_DOWN
 	t.direction = DIR_UP
+
+	if wasDOWN && !t.isAtEnd() {
+		delta = 2
+	}
 
 	if t.Cursor >= delta && len(t.Commands) >= delta {
 		id := t.Commands[t.Cursor-1]
