@@ -34,32 +34,34 @@ func (t *Terminal) canUP() bool {
 func (t *Terminal) canDOWN() bool {
 	return !t.isAtEnd()
 }
+func (t *Terminal) inc() {
+	if t.Cursor < len(t.Commands) {
+		t.Cursor++
+	}
+}
+func (t *Terminal) dec() {
+	if t.Cursor > 0 {
+		t.Cursor--
+	}
+}
 
 func (t *Terminal) up() (int, bool) {
 	if t.isAtBeginning() {
 		return 0, false
 	}
 
-	//	t.log("before up")
-	//	defer t.log("  -> after up")
+	t.log("before up")
+	defer t.log("  -> after up")
 
-	delta := 1
-	wasDOWN := t.direction == DIR_DOWN
-	t.direction = DIR_UP
-
-	if wasDOWN && !t.isAtEnd() {
-		delta = 2
-	}
-
-	if t.Cursor >= delta && len(t.Commands) >= delta {
+	if t.Cursor < len(t.Commands) {
 		id := t.Commands[t.Cursor-1]
-		t.Cursor -= delta
+		t.dec()
 		return id, true
 	} else {
 		t.globalMode = true
-		if t.GlobalId >= delta {
+		if t.GlobalId > 0 {
 			id := t.GlobalId
-			t.GlobalId -= delta
+			t.GlobalId--
 			return id, true
 		}
 
@@ -71,8 +73,8 @@ func (t *Terminal) down() (int, bool) {
 	if t.isAtEnd() {
 		return 0, false
 	}
-	//	t.log("before down")
-	//	defer t.log("  -> after down")
+	t.log("before down")
+	defer t.log("  -> after down")
 
 	wasUP := t.direction == DIR_UP
 	delta := 1
@@ -103,7 +105,6 @@ func (t *Terminal) down() (int, bool) {
 	}
 
 	return 0, false
-
 }
 
 func (t *Terminal) end() {
