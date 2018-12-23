@@ -83,7 +83,7 @@ elif [[ -n "$ZSH_VERSION" ]]; then
         if [ $rc -eq 0 ]; then
             BUFFER="$res"
             CURSOR=${#BUFFER}
-
+            work "add" "$res"
             zle accept-line
         else
             BUFFER=""
