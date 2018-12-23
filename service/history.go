@@ -181,15 +181,17 @@ func (h *History) search(text string, pid int) string {
 	score := []scored{}
 	terminal, hasTerminal := h.perTerminal[pid]
 
-	now := time.Now().UnixNano()
+	now := time.Now().Unix()
 	for query.Next() != NO_MORE {
 		id := query.GetDocId()
 		line := h.Lines[id]
 
 		tfidf := query.Score()
 
-		timeScore := float32(-math.Log10(1 + float64(now-line.TimeStamp)))
+		ts := line.TimeStamp / 1000000000
+		timeScore := float32(-math.Log10(1 + float64(now-ts))) // -log(1+secondsDiff)
 
+		countScore := float32(math.Log1p(float64(line.Count)))
 		terminalScore := float32(0)
 		if hasTerminal {
 			_, hasCommandInHistory := terminal.CommandsSet[int(id)]
@@ -198,7 +200,7 @@ func (h *History) search(text string, pid int) string {
 			}
 		}
 
-		log.Printf("tfidf: %f timeScore: %f terminalScore:%f %s", tfidf, timeScore, terminalScore, line.Line)
+		log.Printf("tfidf: %f timeScore: %f terminalScore:%f countScore:%f, age: %ds - %s", tfidf, timeScore, terminalScore, countScore, now-ts, line.Line)
 		s := tfidf + timeScore + terminalScore
 		score = append(score, scored{query.GetDocId(), s})
 	}
