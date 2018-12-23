@@ -23,37 +23,38 @@ func (t *Terminal) add(id int) {
 	t.Commands = append(t.Commands, id)
 	t.CommandsSet[id] = true
 	t.end()
+	t.globalMode = false
 	t.direction = DIR_NONE
 }
 
-// [ g 1 2 3 4 5 ]
-//             +
-// up
-// [ g 1 2 3 4 5 ]
-//           +
-// down
-// [ g 1 2 3 4 5 ]
-//             +
-func (t *Terminal) up() (int, bool) {
-	wasDOWN := t.direction == DIR_DOWN
-	t.direction = DIR_UP
+func (t *Terminal) canUP() bool {
+	return !t.isAtBeginning()
+}
 
-	if len(t.Commands) == 0 {
+func (t *Terminal) canDOWN() bool {
+	return !t.isAtEnd()
+}
+
+func (t *Terminal) up() (int, bool) {
+	if t.isAtBeginning() {
 		return 0, false
 	}
 
-	if t.Cursor > 0 {
+	//	t.log("before up")
+	//	defer t.log("  -> after up")
+
+	delta := 1
+	t.direction = DIR_UP
+
+	if t.Cursor >= delta && len(t.Commands) >= delta {
 		id := t.Commands[t.Cursor-1]
-		t.Cursor--
-		if wasDOWN && t.Cursor < len(t.Commands)-2 {
-			id = t.Commands[t.Cursor+1]
-		}
+		t.Cursor -= delta
 		return id, true
 	} else {
 		t.globalMode = true
-		if t.GlobalId > 0 {
+		if t.GlobalId >= delta {
 			id := t.GlobalId
-			t.GlobalId--
+			t.GlobalId -= delta
 			return id, true
 		}
 
@@ -61,53 +62,58 @@ func (t *Terminal) up() (int, bool) {
 	}
 }
 
-// [ g 1 2 3 4 5 ]
-//               +
-// up
-// [ g 1 2 3 4 5 ]
-//             +
-// down
-// [ g 1 2 3 4 5 ]
-//               +
 func (t *Terminal) down() (int, bool) {
-	if len(t.Commands) == 0 {
+	if t.isAtEnd() {
 		return 0, false
 	}
+	//	t.log("before down")
+	//	defer t.log("  -> after down")
+
 	wasUP := t.direction == DIR_UP
+	delta := 1
+	if wasUP && !t.isAtBeginning() {
+		delta = 2
+	}
 	t.direction = DIR_DOWN
 	if t.globalMode {
-		if t.GlobalId < t.GlobalIdOnStart {
-			t.GlobalId++
-			return t.GlobalId, true
+		if t.GlobalId+delta <= t.GlobalIdOnStart {
+			t.GlobalId += delta
+			id := t.GlobalId
+			return id, true
 		} else {
 			t.globalMode = false
-			return t.Commands[0], true
+
+			if len(t.Commands) > 0 {
+				t.Cursor = delta
+				return t.Commands[0], true
+			}
+			return 0, false
 		}
 	}
 
-	if t.Cursor < len(t.Commands)-1 {
-		t.Cursor++
-		id := t.Commands[t.Cursor]
-
-		if wasUP {
-			id = t.Commands[t.Cursor]
-		}
+	if t.Cursor <= len(t.Commands)-delta {
+		t.Cursor += delta
+		id := t.Commands[t.Cursor-1]
 		return id, true
 	}
-	//	t.log("cant go down")
+
 	return 0, false
 
 }
 
 func (t *Terminal) end() {
+	t.GlobalId = t.GlobalIdOnStart
 	t.Cursor = len(t.Commands)
-
 }
 
 func (t *Terminal) isAtEnd() bool {
-	return t.Cursor >= len(t.Commands)
+	return t.GlobalId >= t.GlobalIdOnStart && t.Cursor == len(t.Commands)
+}
+
+func (t *Terminal) isAtBeginning() bool {
+	return t.GlobalId == 0 && t.Cursor == 0
 }
 
 func (t *Terminal) log(p string) {
-	log.Printf("%s: globalId: %d, cursor:%d, last index: %d, at end: %t, commands: %#v, buf: %s", p, t.GlobalId, t.Cursor, len(t.Commands)-1, t.isAtEnd(), t.Commands, t.CurrentBufferBeforeMove)
+	log.Printf("%s: [global:%t] globalId: %d/%d, cursor:%d/%d, at end/up/down: %t/%t/%t, commands: %#v, buf: %s", p, t.globalMode, t.GlobalId, t.GlobalIdOnStart, t.Cursor, len(t.Commands)-1, t.isAtEnd(), t.canUP(), t.canDOWN(), t.Commands, t.CurrentBufferBeforeMove)
 }

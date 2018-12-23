@@ -1,6 +1,7 @@
 package main
 
 import "testing"
+import "log"
 
 func TestHistory(t *testing.T) {
 	h := NewHistory()
@@ -37,49 +38,41 @@ func TestHistoryChange(t *testing.T) {
 	must(t, h.up(2, "incomplete-before-up"), "ps 2")                // global id 1, cursor 0
 	must(t, h.up(2, "incomplete-before-up"), "first-terminal-ps 1") // global id 1, cursor 0
 }
-
-func TestHistoryUpDown(t *testing.T) {
+func TestUpDownUp(t *testing.T) {
 	h := NewHistory()
-	must(t, h.up(1, "incomplete"), "")
-	must(t, h.down(1, ""), "incomplete")
-
 	h.add("ps 1", 1)
-
-	must(t, h.up(1, "incomplete"), "ps 1")
-	must(t, h.down(1, ""), "incomplete")
-
 	h.add("ps 2", 1)
 	h.add("ps 3", 1)
-	h.add("ps 4", 1)
 
-	must(t, h.up(1, "incomplete-before-up"), "ps 4")
-	for i := 0; i < 100; i++ {
-		h.up(1, "")
-	}
-	must(t, h.down(1, ""), "ps 1")
-	for i := 0; i < 100; i++ {
-		h.down(1, "")
-	}
-
+	must(t, h.up(1, "incomplete-before-up"), "ps 3")
+	must(t, h.up(1, ""), "ps 2")
+	must(t, h.down(1, ""), "ps 3")
 	must(t, h.down(1, ""), "incomplete-before-up")
+	must(t, h.up(1, ""), "ps 3")
 }
 
-func TestHistoryUpDownMany(t *testing.T) {
+func TestGlobalHistory2(t *testing.T) {
 	h := NewHistory()
 	h.add("ps 2", 1)
 	h.add("ps 3", 1)
 	h.add("ps 4", 1)
 
-	must(t, h.up(1, "incomplete-before-up"), "ps 4")
-	for i := 0; i < 100; i++ {
-		h.up(1, "")
-	}
-	must(t, h.down(1, ""), "ps 2")
-	for i := 0; i < 100; i++ {
-		h.down(1, "")
-	}
+	h.add("zs 1", 2)
+	h.add("zs 2", 2)
+	h.add("zs 3", 2)
 
-	must(t, h.down(1, ""), "incomplete-before-up")
+	must(t, h.up(3, "incomplete-before-up"), "zs 3")
+	must(t, h.up(3, ""), "zs 2")
+	for i := 0; i < 100; i++ {
+		h.up(3, "")
+	}
+	must(t, h.up(3, ""), "ps 2")
+	must(t, h.down(3, ""), "ps 3")
+	must(t, h.down(3, ""), "ps 4")
+	must(t, h.down(3, ""), "zs 1")
+	must(t, h.down(3, ""), "zs 2")
+	must(t, h.down(3, ""), "zs 3")
+	must(t, h.down(3, ""), "incomplete-before-up")
 }
 
 func TestGlobalHistory(t *testing.T) {
@@ -110,15 +103,101 @@ func TestGlobalHistory(t *testing.T) {
 	must(t, h.down(3, ""), "incomplete-before-up")
 }
 
-func TestUpDownUp(t *testing.T) {
+func TestUpDownUpGlobal(t *testing.T) {
+	log.Printf("-----------------")
 	h := NewHistory()
-	h.add("ps 1", 1)
-	h.add("ps 2", 1)
-	h.add("ps 3", 1)
+	h.add("ps 1", 2) //0
+	h.add("ps 2", 2) //1
+	h.add("ps 3", 2) //2
 
-	must(t, h.up(1, "incomplete-before-up"), "ps 3")
-	must(t, h.up(1, ""), "ps 2")
-	must(t, h.down(1, ""), "ps 3")
+	must(t, h.up(1, "incomplete-before-up"), "ps 3") // 2 -> 1
+	must(t, h.up(1, ""), "ps 2")                     // 1 -> 0
+	must(t, h.down(1, ""), "ps 2")                   // 0 -> 1
+	must(t, h.down(1, ""), "ps 3")                   // 1 -> 2
+
 	must(t, h.down(1, ""), "incomplete-before-up")
 	must(t, h.up(1, ""), "ps 3")
+	log.Printf("-----------------")
+}
+
+func TestHistoryUpDown(t *testing.T) {
+	log.Printf("-----------------")
+	h := NewHistory()
+
+	must(t, h.up(1, "incomplete"), "")
+	must(t, h.down(1, ""), "incomplete")
+
+	h.add("ps 1", 1)
+
+	must(t, h.up(1, "incomplete"), "ps 1")
+	must(t, h.down(1, ""), "ps 1")
+	must(t, h.down(1, ""), "incomplete")
+
+	h.add("ps 2", 1)
+	h.add("ps 3", 1)
+	h.add("ps 4", 1)
+
+	must(t, h.up(1, "incomplete-before-up"), "ps 4")
+	for i := 0; i < 100; i++ {
+		h.up(1, "")
+	}
+	must(t, h.down(1, ""), "ps 1")
+	for i := 0; i < 100; i++ {
+		h.down(1, "")
+	}
+
+	must(t, h.down(1, ""), "incomplete-before-up")
+	log.Printf("-----------------")
+}
+
+func TestHistoryUpDownMany(t *testing.T) {
+	log.Printf("-----------------")
+	h := NewHistory()
+	h.add("ps 2", 1)
+	h.add("ps 3", 1)
+	h.add("ps 4", 1)
+
+	must(t, h.up(1, "incomplete-before-up"), "ps 4")
+	for i := 0; i < 10; i++ {
+		h.up(1, "")
+	}
+
+	must(t, h.down(1, ""), "ps 2")
+
+	for i := 0; i < 10; i++ {
+		h.down(1, "")
+	}
+
+	must(t, h.down(1, ""), "incomplete-before-up")
+	log.Printf("-----------------")
+}
+
+func TestUpDownUpUpGlobal(t *testing.T) {
+	h := NewHistory()
+	h.add("ps 1", 2) //0
+	must(t, h.up(1, "a"), "ps 1")
+	must(t, h.down(1, ""), "a")
+	must(t, h.up(1, "a"), "ps 1")
+	must(t, h.down(1, ""), "a")
+	must(t, h.up(1, "a"), "ps 1")
+	must(t, h.down(1, ""), "a")
+	h.add("ps 2", 2) //0
+	must(t, h.up(1, "a"), "ps 1")
+	must(t, h.down(1, ""), "a")
+}
+
+func TestUpDownUpLocal(t *testing.T) {
+	log.Printf("-----------------")
+	h := NewHistory()
+	h.add("ps 1", 1) //0
+	h.add("ps 2", 1) //1
+	h.add("ps 3", 1) //2
+
+	must(t, h.up(1, "incomplete-before-up"), "ps 3") // 2 -> 1
+	must(t, h.up(1, ""), "ps 2")                     // 1 -> 0
+	must(t, h.down(1, ""), "ps 3")                   // 0 -> 1
+
+	must(t, h.down(1, ""), "incomplete-before-up")
+	must(t, h.up(1, ""), "ps 3")
+	log.Printf("-----------------")
 }

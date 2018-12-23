@@ -75,6 +75,7 @@ func (h *History) add(line string, pid int) {
 			Count:     1,
 			Id:        id,
 		}
+
 		h.Lines = append(h.Lines, v)
 		h.Index[line] = v.Id
 		for _, s := range tokenize(line) {
@@ -131,12 +132,16 @@ func (h *History) move(goUP bool, pid int, buf string) string {
 	t, ok := h.perTerminal[pid]
 	if !ok {
 		id := len(h.Lines) - 1
+		if id < 0 {
+			id = 0
+		}
 		t = &Terminal{
 			Commands:        []int{},
 			Cursor:          0,
 			GlobalId:        id,
 			GlobalIdOnStart: id,
 			CommandsSet:     map[int]bool{},
+			globalMode:      true,
 		}
 		h.perTerminal[pid] = t
 	}
@@ -184,6 +189,7 @@ func (s ByScore) Less(i, j int) bool {
 func (h *History) search(text string, pid int) string {
 	h.lock.Lock()
 	defer h.lock.Unlock()
+
 	text = strings.Trim(text, " ")
 	if len(text) == 0 {
 		return ""
