@@ -53,7 +53,7 @@ func (t *Terminal) up() (int, bool) {
 	t.log("before up")
 	defer t.log("  -> after up")
 
-	if t.Cursor < len(t.Commands) {
+	if !t.globalMode && t.Cursor < len(t.Commands) {
 		id := t.Commands[t.Cursor-1]
 		t.dec()
 		return id, true
@@ -76,15 +76,10 @@ func (t *Terminal) down() (int, bool) {
 	t.log("before down")
 	defer t.log("  -> after down")
 
-	wasUP := t.direction == DIR_UP
-	delta := 1
-	if wasUP && !t.isAtBeginning() {
-		delta = 2
-	}
 	t.direction = DIR_DOWN
 	if t.globalMode {
 		if t.GlobalId+delta <= t.GlobalIdOnStart {
-			t.GlobalId += delta
+			t.GlobalId++
 			id := t.GlobalId
 			return id, true
 		} else {
@@ -99,7 +94,7 @@ func (t *Terminal) down() (int, bool) {
 	}
 
 	if t.Cursor <= len(t.Commands)-delta {
-		t.Cursor += delta
+		t.inc()
 		id := t.Commands[t.Cursor-1]
 		return id, true
 	}
