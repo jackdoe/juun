@@ -38,15 +38,24 @@ logs are in $HOME/.juun.log and pid is $HOME/.juun.pid
 ## scoring
 
 running search for `m` from one terminal gives the following score
+(edge gram `e_m`)
 
 ```
-tfidf: 0.693147 timeScore: -11.421828 terminalScore:100.000000 make
-tfidf: 0.693147 timeScore: -11.416780 terminalScore:100.000000 mono
-tfidf: 0.693147 timeScore: -11.065346 terminalScore:0.000000 mongo
-```
-the word mongo is typed on another terminal, and so it is downscored
-the time score is `-log10(now - command.timestamp)`
 
+2018/12/23 14:34:07 tfidf: 0.086013 timeScore: -4.162952 terminalScore:0.000000 countScore:4.543295, age: 14552s - make
+2018/12/23 14:34:07 tfidf: 0.086013 timeScore: -4.904991 terminalScore:0.000000 countScore:1.386294, age: 80350s - make -n
+2018/12/23 14:34:07 tfidf: 0.086013 timeScore: -4.820044 terminalScore:0.000000 countScore:0.693147, age: 66075s - make clean
+2018/12/23 14:34:07 tfidf: 0.086013 timeScore: -4.757343 terminalScore:0.000000 countScore:1.945910, age: 57192s - make install
+2018/12/23 14:34:07 tfidf: 0.086013 timeScore: -4.754386 terminalScore:0.000000 countScore:0.693147, age: 56804s - mkdir brew
+2018/12/23 14:34:07 tfidf: 0.086013 timeScore: -4.114077 terminalScore:0.000000 countScore:0.693147, age: 13003s - git commit -a -m 'make it feel more natural; fix issues with newline'
+
+```
+
+* tfidf `(occurances of [m] in the line) * log(1-totalNumberDocuments/documentsHaving[m])`
+* terminalScore `100 command was ran on this terminal session, 0 otherwise`
+* countScore  `log(number of times this command line was executed)`
+* timeScore `log10(seconds between now and the command)`
+* score = tfidf + terminalScore + countScore + timeScore
 
 
 ## todo

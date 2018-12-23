@@ -34,8 +34,10 @@ type Term struct {
 }
 
 func (t *Term) Score() float32 {
-	//	log.Printf("%d tf totalDocs: %d docsWithTerm: %d", t.getAt(t.cursor)&0xFFFF, t.totalDocs, len(t.postings))
-	return float32(float64(t.getAt(t.cursor)&0xFFFF) * math.Log1p(float64(len(t.postings))/float64(t.totalDocs)))
+	if len(t.postings) == 0 {
+		return 0
+	}
+	return float32(float64(t.getAt(t.cursor)&0xFFFF) * math.Log1p(float64(float64(t.totalDocs)/float64(len(t.postings)))))
 }
 
 func NewTerm(term string, totalDocs int32, postings []uint64) *Term {
