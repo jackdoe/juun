@@ -86,14 +86,16 @@ elif [[ -n "$ZSH_VERSION" ]]; then
             zle accept-line
         fi
     }
+
     _down() {
-        BUFFER=$(work down $BUFFER)
-        zle redisplay
+        BUFFER=$(work down down)
+        CURSOR=${#BUFFER}
     }
     _up() {
-        BUFFER=$(work up $BUFFER)
-        zle redisplay
+        BUFFER=$(work up up)
+        CURSOR=${#BUFFER}
     }
+
     zle -N _up
     zle -N _down
     zle -N _search_start
