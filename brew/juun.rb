@@ -1,9 +1,9 @@
 class Juun < Formula
   desc "juun - bash/zsh history manager and search"
   homepage "https://github.com/jackdoe/juun"
-  url "https://github.com/jackdoe/juun/archive/ff9f22f851bd2de2ce375da20792b1856d5e74a0.zip"
+  url "https://github.com/jackdoe/juun/archive/d1975731f624cd902e0f188cf8e4a5343fd65308.zip"
   version "0.1"
-  sha256 "219a45a825a3fd0d669156fe775668ae22428e05"
+  sha256 "3e626f9d0a5fbd026e300c3965f83df4aa09095f"
   depends_on "golang" => :build, "make" => :build
   def install
     system "make", "install" 
