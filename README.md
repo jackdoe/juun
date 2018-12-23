@@ -55,7 +55,7 @@ running search for `m` from one terminal gives the following score
 * terminalScore `100 command was ran on this terminal session, 0 otherwise`
 * countScore  `log(number of times this command line was executed)`
 * timeScore `log10(seconds between now and the command)`
-* score = tfidf + terminalScore + countScore + timeScore
+* score `tfidf + terminalScore + countScore + timeScore`
 
 
 ## todo
