@@ -27,13 +27,6 @@ func (t *Terminal) add(id int) {
 	t.direction = DIR_NONE
 }
 
-func (t *Terminal) canUP() bool {
-	return !t.isAtBeginning()
-}
-
-func (t *Terminal) canDOWN() bool {
-	return !t.isAtEnd()
-}
 func (t *Terminal) inc() {
 	if t.Cursor < len(t.Commands) {
 		t.Cursor++
@@ -116,5 +109,5 @@ func (t *Terminal) isAtBeginning() bool {
 }
 
 func (t *Terminal) log(p string) {
-	log.Printf("%s: [global:%t] globalId: %d/%d, cursor:%d/%d, at end/up/down: %t/%t/%t, commands: %#v, buf: %s", p, t.globalMode, t.GlobalId, t.GlobalIdOnStart, t.Cursor, len(t.Commands)-1, t.isAtEnd(), t.canUP(), t.canDOWN(), t.Commands, t.CurrentBufferBeforeMove)
+	log.Printf("%s: [global:%t] globalId: %d/%d, cursor:%d/%d, commands: %#v, buf: %s", p, t.globalMode, t.GlobalId, t.GlobalIdOnStart, t.Cursor, len(t.Commands)-1, t.Commands, t.CurrentBufferBeforeMove)
 }
