@@ -48,7 +48,7 @@ func TestUpDownUp(t *testing.T) {
 	must(t, h.up(1, ""), "ps 2")                     // ps3 -> ps 2
 	must(t, h.down(1, ""), "ps 3")                   // ps 2 -> ps 3
 	must(t, h.down(1, ""), "incomplete-before-up")
-	must(t, h.up(1, ""), "ps 3")
+	must(t, h.up(1, ""), "ps 2")
 }
 
 func TestGlobalHistory2(t *testing.T) {
