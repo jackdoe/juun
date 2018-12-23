@@ -1,5 +1,9 @@
 if [[ -n "$BASH" ]]; then
-    ROOT=$(dirname $BASH_SOURCE)
+    _realpath() {
+        [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+    }
+    ROOT=$(_realpath $(dirname $BASH_SOURCE))
+
     if [ ${BASH_VERSINFO[0]} -lt 4 ]; then
         echo "Sorry, you need at least bash-4.0 to use juun."
         exit 1
@@ -23,11 +27,19 @@ if [[ -n "$BASH" ]]; then
 
     _search_start() {
         $ROOT/juun.search $$ 2>/tmp/juun.search.$$
-        res=$(cat /tmp/juun.search.$$ | tr -d "\n")
+        rc=$?
+        res=$(cat /tmp/juun.search.$$)
         rm /tmp/juun.search.$$
-
-        READLINE_LINE="$res"
-        READLINE_POINT="${#READLINE_LINE}"
+        if [ $rc -eq 0 ]; then
+            echo $res
+            eval "$res"
+            work "add" "$res"
+            READLINE_LINE=""
+            READLINE_POINT=""
+        else
+            READLINE_LINE="$res"
+            READLINE_POINT="${#READLINE_LINE}"
+        fi
     }
 
     _down() {
@@ -64,11 +76,15 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     _search_start() {
         zle -I
         </dev/tty $ROOT/juun.search $$ 2>/tmp/juun.search.$$
-        res=$(cat /tmp/juun.search.$$ | tr -d "\n")
+        rc=$?
+        res=$(cat /tmp/juun.search.$$)
         rm /tmp/juun.search.$$
 
         BUFFER="$res"
         CURSOR=${#BUFFER}
+        if [ $rc -eq 0 ]; then
+            zle accept-line
+        fi
     }
     _down() {
         BUFFER=$(work down $BUFFER)
@@ -78,7 +94,6 @@ elif [[ -n "$ZSH_VERSION" ]]; then
         BUFFER=$(work up $BUFFER)
         zle redisplay
     }
-
     zle -N _up
     zle -N _down
     zle -N _search_start

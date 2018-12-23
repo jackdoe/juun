@@ -9,6 +9,7 @@ all:
 
 install:
 	echo source $(ROOT_DIR)/dist/setup.sh >> $(HOME)/.bash_profile
+	echo source $(ROOT_DIR)/dist/setup.sh >> $(HOME)/.zshrc
 
 clean:
 	rm dist/juun.*

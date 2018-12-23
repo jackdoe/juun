@@ -43,9 +43,15 @@ func main() {
 
 	line, err := rl.Readline()
 
-	if result == "" {
-		fmt.Fprintf(rl.Stderr(), "\n%s\n", line)
+	if err != nil || result == "" {
+		if result == "" {
+			fmt.Fprintf(rl.Stderr(), "%s", line)
+		} else {
+			fmt.Fprintf(rl.Stderr(), "%s", result)
+		}
+		os.Exit(1)
 	} else {
-		fmt.Fprintf(rl.Stderr(), "\n%s\n", result)
+		fmt.Fprintf(rl.Stderr(), "%s", result)
+		os.Exit(0)
 	}
 }
