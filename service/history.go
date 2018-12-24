@@ -147,6 +147,7 @@ func (h *History) move(goUP bool, pid int, buf string) string {
 	}
 
 	if goUP && t.isAtEnd() {
+		log.Printf("SETTING ")
 		t.CurrentBufferBeforeMove = buf
 	}
 

@@ -5,19 +5,50 @@ import (
 )
 
 type Terminal struct {
-	Commands                []int
-	CommandsSet             map[int]bool
-	Cursor                  int
-	GlobalIdOnStart         int
-	GlobalId                int
+	Commands    []int
+	CommandsSet map[int]bool
+
+	Cursor     int
+	CursorPrep int
+
+	GlobalIdOnStart int
+	GlobalId        int
+	GlobalIdPrep    int
+
 	CurrentBufferBeforeMove string
-	globalMode              bool
-	direction               int
+
+	globalMode bool
+	direction  int
 }
 
 const DIR_UP = 1
 const DIR_DOWN = 2
 const DIR_NONE = 3
+
+func (t *Terminal) prepare(p int) (int, bool) {
+	if p > 0 && p <= len(t.Commands) {
+		t.CursorPrep = p
+		return t.Commands[p-1], true
+	}
+
+	return 0, false
+}
+
+func (t *Terminal) commit() {
+	t.Cursor = t.CursorPrep
+}
+
+func (t *Terminal) prepareG(p int) (int, bool) {
+	if p > 0 && p <= t.GlobalIdOnStart {
+		t.GlobalIdPrep = p
+		return p, true
+	}
+	return 0, false
+}
+
+func (t *Terminal) commitG() {
+	t.GlobalId = t.GlobalIdPrep
+}
 
 func (t *Terminal) add(id int) {
 	t.Commands = append(t.Commands, id)
@@ -28,63 +59,41 @@ func (t *Terminal) add(id int) {
 }
 
 func (t *Terminal) up() (int, bool) {
-	if t.isAtBeginning() {
-		return 0, false
-	}
-
 	t.log("before up")
 	defer t.log("  -> after up")
-	wasDOWN := t.direction == DIR_DOWN
-	t.direction = DIR_UP
-	if wasDOWN {
-		_, can := t.up() // bring it to the current level
-		if !can {
-			return 0, false
-		}
 
-		return t.up()
+	wasUP := t.direction == DIR_UP
+	if wasUP {
+		t.commit()
+		t.commitG()
 	}
+	t.direction = DIR_UP
 
 	if !t.globalMode && t.Cursor <= len(t.Commands) {
 		id := t.Commands[t.Cursor-1]
-		if t.Cursor > 0 {
-			t.Cursor--
-		}
-
+		t.prepare(t.Cursor - 1)
 		return id, true
 	} else {
 		t.globalMode = true
-		if t.GlobalId > 0 {
-			id := t.GlobalId
-			t.GlobalId--
-			return id, true
-		}
-
-		return 0, false
+		id := t.GlobalId
+		t.prepareG(t.GlobalId - 1)
+		return id, true
 	}
 }
 
 func (t *Terminal) down() (int, bool) {
-	if t.isAtEnd() {
-		return 0, false
-	}
 	t.log("before down")
 	defer t.log("  -> after down")
-	wasUP := t.direction == DIR_UP
-	t.direction = DIR_DOWN
-	if wasUP {
-		_, can := t.down() // bring it to the current level
-		if !can {
-			return 0, false
-		}
-		return t.down()
+	wasDOWN := t.direction == DIR_DOWN
+	if wasDOWN {
+		t.commit()
+		t.commitG()
 	}
+
+	t.direction = DIR_DOWN
 	if t.globalMode {
-		if t.GlobalId <= t.GlobalIdOnStart {
-			t.GlobalId++
-			id := t.GlobalId
-			return id, true
-		} else {
+		id, can := t.prepare(t.GlobalId + 1)
+		if !can {
 			t.globalMode = false
 
 			if len(t.Commands) > 0 {
@@ -92,19 +101,12 @@ func (t *Terminal) down() (int, bool) {
 				return t.Commands[0], true
 			}
 			return 0, false
+		} else {
+			return id, can
 		}
 	}
 
-	if t.Cursor <= len(t.Commands)-1 {
-		if t.Cursor < len(t.Commands) {
-			t.Cursor++
-		}
-
-		id := t.Commands[t.Cursor-1]
-		return id, true
-	}
-
-	return 0, false
+	return t.prepare(t.Cursor + 1)
 }
 
 func (t *Terminal) end() {
@@ -113,7 +115,7 @@ func (t *Terminal) end() {
 }
 
 func (t *Terminal) isAtEnd() bool {
-	return t.GlobalId >= t.GlobalIdOnStart && t.Cursor == len(t.Commands)
+	return t.GlobalId == t.GlobalIdOnStart && t.Cursor == len(t.Commands)
 }
 
 func (t *Terminal) isAtBeginning() bool {

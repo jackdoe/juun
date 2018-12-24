@@ -3,6 +3,19 @@ package main
 import "testing"
 import "log"
 
+func TestUpDownUp(t *testing.T) {
+	h := NewHistory()
+	h.add("ps 1", 1)
+	h.add("ps 2", 1)
+	h.add("ps 3", 1)
+
+	must(t, h.up(1, "incomplete-before-up"), "ps 3") // "" -> ps 3
+	must(t, h.up(1, ""), "ps 2")                     // ps3 -> ps 2
+	must(t, h.down(1, ""), "ps 3")                   // ps 2 -> ps 3
+	must(t, h.down(1, ""), "incomplete-before-up")
+	must(t, h.up(1, ""), "ps 3")
+}
+
 func TestHistory(t *testing.T) {
 	h := NewHistory()
 	h.add("make", 1)
@@ -37,18 +50,6 @@ func TestHistoryChange(t *testing.T) {
 	must(t, h.up(2, "incomplete-before-up"), "ps 3")                // global id 1, cursor 2
 	must(t, h.up(2, "incomplete-before-up"), "ps 2")                // global id 1, cursor 0
 	must(t, h.up(2, "incomplete-before-up"), "first-terminal-ps 1") // global id 1, cursor 0
-}
-func TestUpDownUp(t *testing.T) {
-	h := NewHistory()
-	h.add("ps 1", 1)
-	h.add("ps 2", 1)
-	h.add("ps 3", 1)
-
-	must(t, h.up(1, "incomplete-before-up"), "ps 3") // "" -> ps 3
-	must(t, h.up(1, ""), "ps 2")                     // ps3 -> ps 2
-	must(t, h.down(1, ""), "ps 3")                   // ps 2 -> ps 3
-	must(t, h.down(1, ""), "incomplete-before-up")
-	must(t, h.up(1, ""), "ps 2")
 }
 
 func TestGlobalHistory2(t *testing.T) {
