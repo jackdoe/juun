@@ -61,6 +61,21 @@ func (h *History) add(line string, pid int) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
+	t, ok := h.perTerminal[pid]
+	if !ok {
+		// when new terminal starts we want its GlobalID to point just before the command was added
+		// otherwise it points to the first command and we have to up()up() twice to go to the global history
+		id := len(h.Lines)
+
+		t = &Terminal{
+			Commands:        []int{},
+			Cursor:          0,
+			GlobalIdOnStart: id,
+			CommandsSet:     map[int]bool{},
+		}
+		h.perTerminal[pid] = t
+	}
+
 	now := time.Now().UnixNano()
 	id, ok := h.Index[line]
 	if ok {
@@ -87,23 +102,6 @@ func (h *History) add(line string, pid int) {
 		h.Inverted.TotalDocs++
 	}
 
-	t, ok := h.perTerminal[pid]
-	if !ok {
-		// when new terminal starts we want its GlobalID to point just before the command was added
-		// otherwise it points to the first command and we have to up()up() twice to go to the global history
-		startingId := id
-		if startingId > 0 {
-			startingId--
-		}
-		t = &Terminal{
-			Commands:        []int{},
-			Cursor:          0,
-			GlobalId:        startingId,
-			GlobalIdOnStart: startingId,
-			CommandsSet:     map[int]bool{},
-		}
-		h.perTerminal[pid] = t
-	}
 	t.add(id)
 }
 
@@ -131,23 +129,17 @@ func (h *History) move(goUP bool, pid int, buf string) string {
 
 	t, ok := h.perTerminal[pid]
 	if !ok {
-		id := len(h.Lines) - 1
-		if id < 0 {
-			id = 0
-		}
+		id := len(h.Lines)
 		t = &Terminal{
 			Commands:        []int{},
 			Cursor:          0,
-			GlobalId:        id,
 			GlobalIdOnStart: id,
 			CommandsSet:     map[int]bool{},
-			globalMode:      true,
 		}
 		h.perTerminal[pid] = t
 	}
 
 	if goUP && t.isAtEnd() {
-		log.Printf("SETTING ")
 		t.CurrentBufferBeforeMove = buf
 	}
 
