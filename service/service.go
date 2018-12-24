@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func intOrZero(s string) int {
@@ -140,6 +141,7 @@ func main() {
 	} else {
 		log.Printf("err: %s", err.Error())
 	}
+	history.selfReindex()
 	log.Printf("loading %s, listening to: %s", histfile, socketPath)
 
 	syscall.Unlink(socketPath)
@@ -150,10 +152,8 @@ func main() {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigs
-		log.Printf("closing")
+	save := func() {
+		log.Printf("saving %s", histfile)
 		d1, err := json.Marshal(history)
 		if err == nil {
 			err := ioutil.WriteFile(histfile, d1, 0600)
@@ -163,9 +163,19 @@ func main() {
 		} else {
 			log.Printf("%s", err.Error())
 		}
+	}
+
+	go func() {
+		<-sigs
+		log.Printf("closing")
+		save()
 		sock.Close()
 		os.Exit(0)
 	}()
 
-	listen(history, sock)
+	go listen(history, sock)
+	for {
+		save()
+		time.Sleep(300 * time.Second)
+	}
 }

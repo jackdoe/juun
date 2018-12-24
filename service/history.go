@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -20,7 +21,7 @@ type HistoryLine struct {
 type History struct {
 	Lines       []*HistoryLine
 	Index       map[string]int
-	Inverted    *InvertedIndex
+	inverted    *InvertedIndex
 	perTerminal map[int]*Terminal
 	lock        sync.Mutex
 }
@@ -30,11 +31,33 @@ func NewHistory() *History {
 		Lines:       []*HistoryLine{}, // ordered list of commands
 		Index:       map[string]int{}, // XXX: dont store the strings twice
 		perTerminal: map[int]*Terminal{},
-		Inverted: &InvertedIndex{
+		inverted: &InvertedIndex{
 			Postings:  map[string][]uint64{},
 			TotalDocs: 0,
 		},
 	}
+}
+
+func (h *History) selfReindex() {
+	log.Printf("starting reindexing")
+	h.inverted = &InvertedIndex{
+		Postings:  map[string][]uint64{},
+		TotalDocs: 0,
+	}
+	for _, v := range h.Lines {
+		h.addLineToInvertedIndex(v)
+	}
+	log.Printf("reindexing done")
+}
+
+func (h *History) addLineToInvertedIndex(v *HistoryLine) {
+	for _, s := range tokenize(v.Line) {
+		h.inverted.add(v.Id, fmt.Sprintf("t_%s", s))
+		for _, e := range edge(s) {
+			h.inverted.add(v.Id, fmt.Sprintf("e_%s", e))
+		}
+	}
+	h.inverted.TotalDocs++
 }
 
 func (h *History) deletePID(pid int) {
@@ -44,9 +67,26 @@ func (h *History) deletePID(pid int) {
 	delete(h.perTerminal, pid)
 }
 
+var SPLIT_REGEXP = regexp.MustCompile("[~&@%/_,\\.-]+")
+
 func tokenize(s string) []string {
 	trimmed := strings.Replace(s, "\n", " ", -1)
-	return strings.Split(trimmed, " ")
+	seen := map[string]bool{}
+	splitted := strings.Split(trimmed, " ")
+	for _, sp := range splitted {
+		seen[sp] = true
+		for _, more := range SPLIT_REGEXP.Split(sp, -1) {
+			seen[more] = true
+		}
+	}
+	out := []string{}
+	for k, _ := range seen {
+		if len(k) > 0 {
+			out = append(out, k)
+		}
+	}
+
+	return out
 }
 
 func edge(text string) []string {
@@ -93,13 +133,7 @@ func (h *History) add(line string, pid int) {
 
 		h.Lines = append(h.Lines, v)
 		h.Index[line] = v.Id
-		for _, s := range tokenize(line) {
-			h.Inverted.add(id, fmt.Sprintf("t_%s", s))
-			for _, e := range edge(s) {
-				h.Inverted.add(id, fmt.Sprintf("e_%s", e))
-			}
-		}
-		h.Inverted.TotalDocs++
+		h.addLineToInvertedIndex(v)
 	}
 
 	t.add(id)
@@ -190,7 +224,7 @@ func (h *History) search(text string, pid int) string {
 
 	terms := []Query{}
 	for _, s := range tokenize(text) {
-		terms = append(terms, h.Inverted.term("e", s))
+		terms = append(terms, h.inverted.term("e", s))
 	}
 
 	query := NewBoolOrQuery(terms)
@@ -198,6 +232,7 @@ func (h *History) search(text string, pid int) string {
 	terminal, hasTerminal := h.perTerminal[pid]
 
 	now := time.Now().Unix()
+	maxScore := float32(0)
 	for query.Next() != NO_MORE {
 		id := query.GetDocId()
 		line := h.Lines[id]
@@ -216,8 +251,11 @@ func (h *History) search(text string, pid int) string {
 			}
 		}
 
-		log.Printf("tfidf: %f timeScore: %f terminalScore:%f countScore:%f, age: %ds - %s", tfidf, timeScore, terminalScore, countScore, now-ts, line.Line)
 		s := tfidf + timeScore + terminalScore
+		if s > maxScore {
+			log.Printf("tfidf: %f timeScore: %f terminalScore:%f countScore:%f, age: %ds - %s", tfidf, timeScore, terminalScore, countScore, now-ts, line.Line)
+			maxScore = s
+		}
 		score = append(score, scored{query.GetDocId(), s})
 	}
 	sort.Sort(ByScore(score))
