@@ -14,13 +14,13 @@ import (
 type HistoryLine struct {
 	Line      string
 	TimeStamp int64
-	Count     uint64
+	Count     uint32
 	Id        int
 }
 
 type History struct {
 	Lines       []*HistoryLine
-	Index       map[string]int
+	index       map[string]int
 	inverted    *InvertedIndex
 	perTerminal map[int]*Terminal
 	lock        sync.Mutex
@@ -29,7 +29,7 @@ type History struct {
 func NewHistory() *History {
 	return &History{
 		Lines:       []*HistoryLine{}, // ordered list of commands
-		Index:       map[string]int{}, // XXX: dont store the strings twice
+		index:       map[string]int{}, // XXX: dont store the strings twice
 		perTerminal: map[int]*Terminal{},
 		inverted: &InvertedIndex{
 			Postings:  map[string][]uint64{},
@@ -44,10 +44,11 @@ func (h *History) selfReindex() {
 		Postings:  map[string][]uint64{},
 		TotalDocs: 0,
 	}
-	for _, v := range h.Lines {
+	for id, v := range h.Lines {
 		h.addLineToInvertedIndex(v)
+		h.index[v.Line] = id
 	}
-	log.Printf("reindexing done")
+	log.Printf("reindexing done, %d items", len(h.index))
 }
 
 func (h *History) addLineToInvertedIndex(v *HistoryLine) {
@@ -117,13 +118,14 @@ func (h *History) add(line string, pid int) {
 	}
 
 	now := time.Now().UnixNano()
-	id, ok := h.Index[line]
+	id, ok := h.index[line]
 	if ok {
 		v := h.Lines[id]
 		v.Count++
 		v.TimeStamp = now
 	} else {
 		id = len(h.Lines)
+
 		v := &HistoryLine{
 			Line:      line,
 			TimeStamp: now,
@@ -132,7 +134,7 @@ func (h *History) add(line string, pid int) {
 		}
 
 		h.Lines = append(h.Lines, v)
-		h.Index[line] = v.Id
+		h.index[line] = v.Id
 		h.addLineToInvertedIndex(v)
 	}
 
