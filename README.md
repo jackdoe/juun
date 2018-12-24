@@ -45,6 +45,16 @@ it also hooks to preexec() (copied from https://github.com/rcaloras/bash-preexec
 setup.sh will always try to start `juun.service` which listens on $HOME/.juun.sock
 logs are in $HOME/.juun.log and pid is $HOME/.juun.pid
 
+## import
+
+if you want to import your current history run:
+
+```
+$ history | dist/juun.import
+```
+
+this will add each of your history lines to juun
+
 ## scoring
 
 running search for `m` from one terminal gives the following score
