@@ -265,6 +265,15 @@ func NewVowpalInstance(modelPath string) *vowpal {
 	vwCMD.Stderr = os.Stderr
 	if err := vwCMD.Start(); err != nil {
 		fmt.Println("An error occured: ", err)
+		os.Remove(modelPath)
+
+		vwCMD = run(binary, args...)
+		vwCMD.Stdout = os.Stderr
+		vwCMD.Stderr = os.Stderr
+		if err := vwCMD.Start(); err != nil {
+			fmt.Println("An error occured: ", err)
+			return nil
+		}
 	}
 
 	waitForFile(fn)
