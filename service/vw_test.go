@@ -1,9 +1,12 @@
 package main
 
-import "testing"
-import "log"
-import "os"
-import "time"
+import (
+	"log"
+	"os"
+	"sort"
+	"testing"
+	"time"
+)
 
 func TestVW(t *testing.T) {
 	fn := "/tmp/juun-testing.vw"
@@ -47,4 +50,9 @@ func TestVW(t *testing.T) {
 	if got != expected {
 		t.Fatalf("wrong time features, expecte: '%s', got '%s'", expected, got)
 	}
+
+	a := []int{1, 2, 2, 3, 4}
+	sort.Slice(a, func(i, j int) bool { return a[i] > a[j] })
+	log.Printf("%+v", a)
+
 }

@@ -47,7 +47,9 @@ func timeToNamespace(ns string, now time.Time) *namespace {
 func userContext(query string) *featureSet {
 	features := []*feature{}
 	for _, s := range strings.Split(query, " ") {
-		features = append(features, NewFeature(s, 0))
+		if len(s) > 0 {
+			features = append(features, NewFeature(s, 0))
+		}
 	}
 	qns := NewNamespace("c_query", features...)
 
@@ -178,6 +180,7 @@ func (h *History) add(line string, pid int) {
 
 	if h.vw != nil {
 		h.vw.Click(id)
+		h.like(h.Lines[id])
 	}
 
 	t.add(id)
@@ -261,6 +264,8 @@ func (s ByScore) Less(i, j int) bool {
 	return s[j].score < s[i].score
 }
 
+const scoreOnTerminal = float32(100)
+
 func (h *History) search(text string, pid int) string {
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -295,7 +300,7 @@ func (h *History) search(text string, pid int) string {
 		if hasTerminal {
 			_, hasCommandInHistory := terminal.CommandsSet[int(id)]
 			if hasCommandInHistory {
-				terminalScore = 100
+				terminalScore = scoreOnTerminal
 			}
 		}
 
@@ -337,7 +342,7 @@ func (h *History) search(text string, pid int) string {
 		}
 
 		prediction := h.vw.Predict(1, vwi...)
-		sort.Slice(score, func(i, j int) bool { return prediction[int(score[i].id)] > prediction[int(score[j].id)] })
+		sort.Slice(score, func(i, j int) bool { return prediction[int(score[j].id)] < prediction[int(score[i].id)] })
 	}
 
 	// pick the first one
@@ -346,4 +351,16 @@ func (h *History) search(text string, pid int) string {
 	}
 
 	return ""
+}
+
+func (h *History) like(line *HistoryLine) {
+	if h.vw == nil {
+		return
+	}
+
+	ctx := userContext("")
+	f := line.featurize()
+	f.add(ctx)
+	f.addNamespaces(NewNamespace("i_score", NewFeature(fmt.Sprintf("terminalScore=%d", int(scoreOnTerminal)), 0)))
+	h.vw.SendReceive(fmt.Sprintf("1 %s", f.toVW()))
 }

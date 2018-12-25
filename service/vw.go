@@ -240,21 +240,21 @@ func NewVowpalInstance(modelPath string) *vowpal {
 		"1",
 		"--loss_function",
 		"logistic",
-
+		"--random_seed",
+		"0",
 		"--save_resume",
-		"-f",
-		modelPath,
 	}
 
 	if exists(modelPath) {
 		args = append(args, "-i", modelPath)
 	} else {
 		args = append(args,
+			"--hash_seed",
+			"0",
 			"--link",
 			"logistic",
 			"-b",
 			"18",
-
 			"-q",
 			"ci",
 			"--bootstrap",
