@@ -17,4 +17,14 @@ func TestVW(t *testing.T) {
 
 	log.Printf("%f", v.getVowpalScore("|a b 1"))
 	v.Shutdown()
+
+	bandit := NewBandit()
+
+	pred := bandit.Predict(&item{id: 5, features: "|a b 1"}, &item{id: 6, features: "|a b 1"})
+	if len(pred) != 2 {
+		t.Fatalf("expected 2 items")
+	}
+	bandit.Click(5)
+	bandit.Shutdown()
+
 }

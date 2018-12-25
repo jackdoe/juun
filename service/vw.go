@@ -211,3 +211,67 @@ func (v *vowpal) getVowpalScore(features string) float32 {
 	}
 	return float32(f)
 }
+
+type bandit struct {
+	*vowpal
+	predictions map[int]*prediction // item id -> last prediction
+}
+
+func NewBandit() *bandit {
+	return &bandit{vowpal: NewVowpalInstance(), predictions: map[int]*prediction{}}
+}
+
+type item struct {
+	id       int
+	features string
+}
+
+type prediction struct {
+	items map[int]*item
+	ts    int64
+}
+
+func (v *bandit) Predict(items ...*item) map[int]float32 {
+	out := map[int]float32{}
+
+	prediction := &prediction{
+		ts:    time.Now().Unix(),
+		items: map[int]*item{},
+	}
+
+	for _, item := range items {
+		out[item.id] = v.vowpal.getVowpalScore(item.features)
+		prediction.items[item.id] = item
+		v.predictions[item.id] = prediction
+	}
+
+	return out
+}
+
+func (v *bandit) Click(clicked int) {
+
+	pred, ok := v.predictions[clicked]
+	if !ok {
+		return
+	}
+
+	for _, item := range pred.items {
+		label := -1
+		if item.id == clicked {
+			label = 1
+		}
+		v.vowpal.SendReceive(fmt.Sprintf("%d %s", label, item.features))
+	}
+	v.expire()
+}
+
+func (v *bandit) expire() {
+	// expire the old ones
+	// FIXME: train negative?
+	now := time.Now().Unix()
+	for k, p := range v.predictions {
+		if now-p.ts > 60 {
+			delete(v.predictions, k)
+		}
+	}
+}
