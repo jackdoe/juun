@@ -81,9 +81,6 @@ running search for `m` from one terminal gives the following score
 ## todo
 
 * run some basic ml to improve the search
-* fix search "ui" to look more like readline's
-* use protobuf for the history
-* limit the amount of data in the indexes (archive)
 
 ## cerdit
 

@@ -1,7 +1,6 @@
 package main
 
 import "testing"
-import "log"
 
 func TestUpDownUp(t *testing.T) {
 	h := NewHistory()
@@ -43,26 +42,9 @@ func must(t *testing.T, a, b string) {
 
 func TestHistoryChange(t *testing.T) {
 	h := NewHistory()
-	h.add("first-terminal-ps 1", 1) // global id 0
-	h.add("ps 2", 2)                // global id 1
-	h.add("ps 3", 2)                // global id 1
-	/*
-
-	   2018/12/24 11:03:53 ADD: cursor:1/0 @ 1, commands: []int{0}, buf:
-	   2018/12/24 11:03:53 ADD: cursor:1/0 @ 2, commands: []int{1}, buf:
-	   2018/12/24 11:03:53 ADD: cursor:2/1 @ 2, commands: []int{1, 2}, buf:
-
-	   2018/12/24 11:03:53 before up: cursor:2/1 @ 2, commands: []int{1, 2}, buf: incomplete-before-up
-	   2018/12/24 11:03:53   -> after up: cursor:1/1 @ 2, commands: []int{1, 2}, buf: incomplete-before-up
-
-	   2018/12/24 11:03:53 before up: cursor:1/1 @ 2, commands: []int{1, 2}, buf: incomplete-before-up
-	   2018/12/24 11:03:53   -> after up: cursor:0/1 @ 2, commands: []int{1, 2}, buf: incomplete-before-up
-
-	   2018/12/24 11:03:53 before up: cursor:0/1 @ 2, commands: []int{1, 2}, buf: incomplete-before-up
-	   2018/12/24 11:03:53   -> after up: cursor:-1/1 @ 2, commands: []int{1, 2}, buf: incomplete-before-up
-	   --- FAIL: TestHistoryChange (0.00s)
-
-	*/
+	h.add("first-terminal-ps 1", 1)                                 // global id 0
+	h.add("ps 2", 2)                                                // global id 1
+	h.add("ps 3", 2)                                                // global id 1
 	must(t, h.up(2, "incomplete-before-up"), "ps 3")                // global id 1, cursor 2
 	must(t, h.up(2, "incomplete-before-up"), "ps 2")                // global id 1, cursor 0
 	must(t, h.up(2, "incomplete-before-up"), "first-terminal-ps 1") // global id 1, cursor 0
@@ -121,7 +103,6 @@ func TestGlobalHistory(t *testing.T) {
 }
 
 func TestUpDownUpGlobal(t *testing.T) {
-	log.Printf("-----------------")
 	h := NewHistory()
 	h.add("ps 1", 2) //0
 	h.add("ps 2", 2) //1
@@ -134,11 +115,9 @@ func TestUpDownUpGlobal(t *testing.T) {
 
 	must(t, h.down(1, ""), "incomplete-before-up")
 	must(t, h.up(1, ""), "ps 3")
-	log.Printf("-----------------")
 }
 
 func TestHistoryUpDown(t *testing.T) {
-	log.Printf("-----------------")
 	h := NewHistory()
 
 	must(t, h.up(1, "incomplete"), "")
@@ -163,7 +142,6 @@ func TestHistoryUpDown(t *testing.T) {
 	}
 
 	must(t, h.down(1, ""), "incomplete-before-up")
-	log.Printf("-----------------")
 }
 
 func TestUpDownUpUpGlobal(t *testing.T) {
@@ -181,7 +159,6 @@ func TestUpDownUpUpGlobal(t *testing.T) {
 }
 
 func TestUpDownUpLocal(t *testing.T) {
-	log.Printf("-----------------")
 	h := NewHistory()
 	h.add("ps 1", 1) //0
 	h.add("ps 2", 1) //1
@@ -193,11 +170,9 @@ func TestUpDownUpLocal(t *testing.T) {
 
 	must(t, h.down(1, ""), "incomplete-before-up")
 	must(t, h.up(1, ""), "ps 3")
-	log.Printf("-----------------")
 }
 
 func TestHistoryUpDownMany(t *testing.T) {
-	log.Printf("-----------------")
 	h := NewHistory()
 	h.add("ps 2", 1)
 	h.add("ps 3", 1)
@@ -215,5 +190,4 @@ func TestHistoryUpDownMany(t *testing.T) {
 	}
 
 	must(t, h.down(1, ""), "incomplete-before-up")
-	log.Printf("-----------------")
 }
