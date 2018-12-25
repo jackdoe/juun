@@ -167,6 +167,7 @@ func (v *vowpal) SendReceive(line string) string {
 		return "0 0 0"
 	}
 	log.Printf("received %s", message)
+
 	return message
 }
 

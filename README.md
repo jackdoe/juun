@@ -31,6 +31,9 @@ brew install juun
 requires bash4.+ and golang
 
 ```
+go get github.com/chzyer/readline
+go get github.com/sevlyar/go-daemon
+
 git clone https://github.com/jackdoe/juun
 cd juun && make
 ```
