@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -19,17 +21,89 @@ type vowpal struct {
 	conn net.Conn
 	cmd  *exec.Cmd
 	rw   *bufio.ReadWriter
+	fn   string
 }
 
 func (v *vowpal) Shutdown() {
 	v.conn.Close()
-	if err := v.cmd.Process.Kill(); err != nil {
-		log.Printf("failed to kill process: %s", err.Error())
+	log.Printf("removing %s", v.fn)
+
+	cmd := v.cmd
+	err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	if err != nil {
+		log.Printf("kill failed: %v\n", err)
+	}
+	os.Remove(v.fn)
+}
+
+var CLEANUP_REG = regexp.MustCompile("[^a-zA-Z0-9]+")
+
+type feature struct {
+	feature string
+	value   float32
+}
+
+func NewFeature(f string, value float32) *feature {
+	clean := CLEANUP_REG.ReplaceAllString(f, "_")
+	if len(clean) == 0 {
+		clean = "_"
+	}
+	return &feature{
+		feature: clean,
+		value:   value,
+	}
+}
+
+func (f *feature) toVW() string {
+	if f.value != 0 {
+		return fmt.Sprintf("%s:%.0f", f.feature, f.value)
+	}
+	return fmt.Sprintf("%s", f.feature)
+}
+
+type namespace struct {
+	ns       string
+	features []*feature
+}
+
+func NewNamespace(ns string, fs ...*feature) *namespace {
+	return &namespace{
+		ns:       ns,
+		features: fs,
+	}
+}
+
+func (n *namespace) toVW() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("|%s ", n.ns))
+	for _, f := range n.features {
+		sb.WriteString(f.toVW())
+		sb.WriteString(" ")
+	}
+	return sb.String()
+}
+
+type featureSet struct {
+	namespaces []*namespace
+	toVW       string
+}
+
+func NewFeatureSet(nss ...*namespace) *featureSet {
+	var sb strings.Builder
+	for _, f := range nss {
+		sb.WriteString(f.toVW())
+		sb.WriteString(" ")
 	}
 
+	return &featureSet{
+		namespaces: nss,
+		toVW:       sb.String(),
+	}
 }
+
 func (v *vowpal) SendReceive(line string) string {
 	v.rw.Write([]byte(line))
+	v.rw.Write([]byte("\n"))
 	v.rw.Flush()
 	message, _ := v.rw.ReadString('\n')
 	log.Printf("sending %s, received: %s", strings.Replace(line, "\n", "", -1), message)
@@ -39,6 +113,8 @@ func (v *vowpal) SendReceive(line string) string {
 func run(c string, args ...string) *exec.Cmd {
 	log.Printf("running %s %s", c, strings.Join(args, " "))
 	cmd := exec.Command(c, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	return cmd
 }
 
@@ -112,11 +188,6 @@ func NewVowpalInstance() *vowpal {
 	waitForFile(fn)
 	port := readPortFile(fn)
 
-	go func() {
-		vwCMD.Wait()
-		os.Remove(fn)
-	}()
-
 	var conn net.Conn
 	var err error
 	for {
@@ -128,5 +199,15 @@ func NewVowpalInstance() *vowpal {
 		time.Sleep(1 * time.Second)
 	}
 
-	return &vowpal{conn: conn, cmd: vwCMD, rw: bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))}
+	return &vowpal{fn: fn, conn: conn, cmd: vwCMD, rw: bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))}
+}
+
+func (v *vowpal) getVowpalScore(features string) float32 {
+	s := strings.Replace(v.SendReceive(features), "\n", "", -1)
+	splitted := strings.Split(s, " ")
+	f, err := strconv.ParseFloat(splitted[2], 32)
+	if err != nil {
+		log.Printf("err: %s", err)
+	}
+	return float32(f)
 }

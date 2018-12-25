@@ -24,6 +24,7 @@ type History struct {
 	inverted    *InvertedIndex
 	perTerminal map[int]*Terminal
 	lock        sync.Mutex
+	vw          *vowpal
 }
 
 func NewHistory() *History {
@@ -49,6 +50,7 @@ func (h *History) selfReindex() {
 		h.index[v.Line] = id
 	}
 	log.Printf("reindexing done, %d items", len(h.index))
+
 }
 
 func (h *History) addLineToInvertedIndex(v *HistoryLine) {
@@ -261,7 +263,7 @@ func (h *History) search(text string, pid int) string {
 		score = append(score, scored{query.GetDocId(), s})
 	}
 	sort.Sort(ByScore(score))
-
+	// take the top 10 and sort them using vowpal wabbit's bootstrap
 	if len(score) > 0 {
 		return h.Lines[score[0].docId].Line
 	}
