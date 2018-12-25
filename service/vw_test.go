@@ -10,6 +10,8 @@ func TestVW(t *testing.T) {
 	os.Remove(fn)
 	v := NewVowpalInstance(fn)
 	v.SendReceive("1 |a b c")
+
+	log.Printf("%#v", v.SendReceive("| 0:"))
 	v.Save()
 	if !exists(fn) {
 		t.Fatalf("missing %s", fn)

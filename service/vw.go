@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -114,6 +115,7 @@ func (fs *featureSet) toVW() string {
 
 	return sb.String()
 }
+
 func (v *vowpal) Save() {
 	v.Lock()
 	v.rw.Write([]byte(fmt.Sprintf("save_%s", v.modelPath)))
@@ -124,6 +126,31 @@ func (v *vowpal) Save() {
 	waitForFile(v.modelPath)
 }
 
+func ReadWithTimeout(reader *bufio.ReadWriter, timeout time.Duration) (string, error) {
+	s := make(chan string)
+	e := make(chan error)
+
+	go func() {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			e <- err
+		} else {
+			s <- line
+		}
+		close(s)
+		close(e)
+	}()
+
+	select {
+	case line := <-s:
+		return line, nil
+	case err := <-e:
+		return "", err
+	case <-time.After(timeout):
+		return "", errors.New("Timeout")
+	}
+}
+
 func (v *vowpal) SendReceive(line string) string {
 	v.Lock()
 	defer v.Unlock()
@@ -131,8 +158,14 @@ func (v *vowpal) SendReceive(line string) string {
 	v.rw.Write([]byte(line))
 	v.rw.Write([]byte("\n"))
 	v.rw.Flush()
+
 	log.Printf("sending %s", strings.Replace(line, "\n", "", -1))
-	message, _ := v.rw.ReadString('\n')
+
+	message, err := ReadWithTimeout(v.rw, 1*time.Second)
+	if err != nil {
+		log.Printf("error reading from vw: %s", err.Error())
+		return "0 0 0"
+	}
 	log.Printf("received %s", message)
 	return message
 }
