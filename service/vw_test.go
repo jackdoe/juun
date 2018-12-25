@@ -16,7 +16,7 @@ func TestVW(t *testing.T) {
 	}
 	fs := NewFeatureSet(NewNamespace("a", NewFeature("abc", 0), NewFeature("abc", 1), NewFeature("|a^512653", 1)), NewNamespace("x", NewFeature("xyz", 0), NewFeature("xyz", 1)))
 	log.Printf(fs.toVW())
-	expected := "|a abc abc:1 _a_512653:1  |x xyz xyz:1  "
+	expected := "|a abc abc:1.000000 _a_512653:1.000000  |x xyz xyz:1.000000  "
 	if fs.toVW() != expected {
 		t.Fatalf("'%s' got '%s'", expected, fs.toVW())
 	}
@@ -27,14 +27,14 @@ func TestVW(t *testing.T) {
 	os.Remove("/tmp/juun-testing.bandit.vw")
 	bandit := NewBandit("/tmp/juun-testing.bandit.vw")
 
-	pred := bandit.Predict(2, &item{id: 5, features: "|a b 1"}, &item{id: 6, features: "|a b 1"})
+	pred := bandit.Predict(2, &item{id: 5, features: "|a b 1.000000"}, &item{id: 6, features: "|a b 1.000000"})
 	if len(pred) != 2 {
 		t.Fatalf("expected 2 items")
 	}
 
-	pred = bandit.Predict(1, &item{id: 5, features: "|a b 1"}, &item{id: 6, features: "|a b 1"})
-	if len(pred) != 1 {
-		t.Fatalf("expected 1 items")
+	pred = bandit.Predict(1, &item{id: 5, features: "|a b 1.000000"}, &item{id: 6, features: "|a b 1.000000"})
+	if len(pred) != 2 {
+		t.Fatalf("expected 2 items")
 	}
 
 	bandit.Click(5)

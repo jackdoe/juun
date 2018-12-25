@@ -144,10 +144,8 @@ func main() {
 	}
 
 	history.selfReindex()
-	var vw *bandit
-	if exists("/usr/local/bin/vw") {
-		vw = NewBandit(modelFile)
-	}
+
+	vw := NewBandit(modelFile) // XXX: can be nil if vw is not found
 	history.vw = vw
 	syscall.Unlink(socketPath)
 	sock, err := net.Listen("unix", socketPath)
@@ -177,7 +175,11 @@ func main() {
 		<-sigs
 		log.Printf("closing")
 		save()
+		os.Chmod(modelFile, 0600)
 		sock.Close()
+		if vw != nil {
+			vw.Shutdown()
+		}
 		os.Exit(0)
 	}()
 

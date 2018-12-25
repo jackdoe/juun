@@ -77,10 +77,37 @@ running search for `m` from one terminal gives the following score
 * timeScore `log10(seconds between now and the command)`
 * score `tfidf + terminalScore + countScore + timeScore`
 
+## learning
 
-## todo
+If you have [vowpal wabbit](https://github.com/VowpalWabbit/vowpal_wabbit) installed (`brew install vowpal-wabbit`), juun will use it to re-sort the last 5 items from the search
+when you click (use) one of the recommended items it learns positive signal, if you use something else rather than the shown results, it will learn negative signal
 
-* run some basic ml to improve the search
+Vowpal is started with quadratic interractions between `i` and `c` namespaces, the features are split into item and user features context, and the user context is `query` and the `time`.
+For example: `git diff` is featurized as
+```
+|i_id id_2
+|i_text git diff
+|i_count count:4.454347
+|i_time year_2018 day_25 month_12 hour_16
+|i_score tfidf:1.870803 timeScore:-0.903090 countScore:4.454347 terminalScore_100
+```
+and the user is featurized as:
+
+```
+|c_user_time year_2018 day_25 month_12 hour_16  |c_query git
+```
+
+i_time is the last time this command was used, the idea is to learn patterns like: in the morning i prefer those commands, and in the evenening i prefer those
+As you can see one of the features of the items is the search engine's score.
+
+
+example log line in `~/.juun.log`
+
+```
+2018/12/25 16:54:26 sending 1 |i_id id_2  |i_text git diff  |i_count count:4.454347  |i_time year_2018 day_25 month_12 hour_16  |c_user_time year_2018 day_25 month_12 hour_16  |c_query git  |i_score tfidf:1.870803 timeScore:-0.903090 countScore:4.454347 terminalScore_100
+2018/12/25 16:54:26 received 0.624512 0.584649 0.664374
+```
+
 
 ## cerdit
 

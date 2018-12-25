@@ -18,17 +18,18 @@ type HistoryLine struct {
 	Id        int
 }
 
-func (l *HistoryLine) toVW(query string) *featureSet {
+func (l *HistoryLine) featurize() *featureSet {
 	features := []*feature{}
 	for _, s := range strings.Split(l.Line, " ") {
 		features = append(features, NewFeature(s, 0))
 	}
-	text := NewNamespace("text", features...)
+	text := NewNamespace("i_text", features...)
 
 	count := NewNamespace("i_count", NewFeature("count", float32(math.Log(float64(1)+float64(l.Count)))))
 	t := timeToNamespace("i_time", time.Unix(l.TimeStamp/1000000000, 0))
+	id := NewNamespace("i_id", NewFeature(fmt.Sprintf("id=%d", l.Id), float32(0)))
 
-	return NewFeatureSet(text, count, t)
+	return NewFeatureSet(id, text, count, t)
 }
 
 func timeToNamespace(ns string, now time.Time) *namespace {
@@ -175,6 +176,10 @@ func (h *History) add(line string, pid int) {
 		h.addLineToInvertedIndex(v)
 	}
 
+	if h.vw != nil {
+		h.vw.Click(id)
+	}
+
 	t.add(id)
 }
 
@@ -236,8 +241,12 @@ func (h *History) move(goUP bool, pid int, buf string) string {
 }
 
 type scored struct {
-	docId int32
-	score float32
+	id            int
+	score         float32
+	tfidf         float32
+	countScore    float32
+	timeScore     float32
+	terminalScore float32
 }
 
 type ByScore []scored
@@ -295,20 +304,46 @@ func (h *History) search(text string, pid int) string {
 			log.Printf("total: %f, tfidf: %f timeScore: %f terminalScore:%f countScore:%f, age: %ds - %s", total, tfidf, timeScore, terminalScore, countScore, now-ts, line.Line)
 			maxScore = total
 		}
-		score = append(score, scored{query.GetDocId(), total})
+		score = append(score, scored{id: line.Id, score: total, tfidf: tfidf, timeScore: timeScore, terminalScore: terminalScore, countScore: countScore})
 	}
 	sort.Sort(ByScore(score))
 
-	// topN := 10
-	// if topN > len(score) {
-	// 	topN = len(score)
-	// }
+	if h.vw != nil {
+		// take the top 5 and sort them using vowpal wabbit's bootstrap
+		topN := 5
+		if topN > len(score) {
+			topN = len(score)
+		}
 
-	//	for i := 0; i <
-	// take the top 10 and sort them using vowpal wabbit's bootstrap
+		ctx := userContext(text)
+		vwi := []*item{}
+		for i := 0; i < topN; i++ {
+			s := score[i]
+			line := h.Lines[s.id]
 
-	if len(score) > 0 {
-		return h.Lines[score[0].docId].Line
+			f := line.featurize()
+			f.add(ctx)
+			f.addNamespaces(
+				NewNamespace("i_score",
+					NewFeature("tfidf", s.tfidf),
+					NewFeature("timeScore", s.timeScore),
+					NewFeature("countScore", s.countScore),
+					NewFeature(fmt.Sprintf("terminalScore=%d", int(s.terminalScore)), 0)))
+
+			vwi = append(vwi, &item{
+				features: f.toVW(),
+				id:       line.Id,
+			})
+		}
+
+		prediction := h.vw.Predict(1, vwi...)
+		sort.Slice(score, func(i, j int) bool { return prediction[int(score[i].id)] > prediction[int(score[j].id)] })
 	}
+
+	// pick the first one
+	if len(score) > 0 {
+		return h.Lines[score[0].id].Line
+	}
+
 	return ""
 }
