@@ -15,9 +15,23 @@ import (
 	"time"
 )
 
-func sendReceive(conn net.Conn, line string) string {
-	conn.Write([]byte(line))
-	message, _ := bufio.NewReader(conn).ReadString('\n')
+type vowpal struct {
+	conn net.Conn
+	cmd  *exec.Cmd
+	rw   *bufio.ReadWriter
+}
+
+func (v *vowpal) Shutdown() {
+	v.conn.Close()
+	if err := v.cmd.Process.Kill(); err != nil {
+		log.Printf("failed to kill process: %s", err.Error())
+	}
+
+}
+func (v *vowpal) SendReceive(line string) string {
+	v.rw.Write([]byte(line))
+	v.rw.Flush()
+	message, _ := v.rw.ReadString('\n')
 	log.Printf("sending %s, received: %s", strings.Replace(line, "\n", "", -1), message)
 	return message
 }
@@ -58,7 +72,7 @@ func readPortFile(fn string) int {
 	return n
 }
 
-func startVW() (net.Conn, *exec.Cmd) {
+func NewVowpalInstance() *vowpal {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	fn := path.Join(os.TempDir(), fmt.Sprintf("juun.%s.vw.port", RandomString(16)))
@@ -114,5 +128,5 @@ func startVW() (net.Conn, *exec.Cmd) {
 		time.Sleep(1 * time.Second)
 	}
 
-	return conn, vwCMD
+	return &vowpal{conn: conn, cmd: vwCMD, rw: bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))}
 }
