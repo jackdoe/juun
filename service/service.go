@@ -109,6 +109,7 @@ func main() {
 	histfile := path.Join(usr.HomeDir, ".juun.json")
 	socketPath := path.Join(usr.HomeDir, ".juun.sock")
 	pidFile := path.Join(usr.HomeDir, ".juun.pid")
+	modelFile := path.Join(usr.HomeDir, ".juun.vw")
 	if isRunning(pidFile) {
 		os.Exit(0)
 	}
@@ -130,7 +131,7 @@ func main() {
 		return
 	}
 	defer cntxt.Release()
-
+	log.Printf("loading %s, listening to: %s, model: %s", histfile, socketPath, modelFile)
 	dat, err := ioutil.ReadFile(histfile)
 	if err == nil {
 		err = json.Unmarshal(dat, history)
@@ -141,9 +142,13 @@ func main() {
 	} else {
 		log.Printf("err: %s", err.Error())
 	}
-	history.selfReindex()
-	log.Printf("loading %s, listening to: %s", histfile, socketPath)
 
+	history.selfReindex()
+	var vw *bandit
+	if exists("/usr/local/bin/vw") {
+		vw = NewBandit(modelFile)
+	}
+	history.vw = vw
 	syscall.Unlink(socketPath)
 	sock, err := net.Listen("unix", socketPath)
 	if err != nil {
@@ -162,6 +167,9 @@ func main() {
 			}
 		} else {
 			log.Printf("%s", err.Error())
+		}
+		if vw != nil {
+			vw.Save()
 		}
 	}
 

@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -86,22 +87,22 @@ func (n *namespace) toVW() string {
 
 type featureSet struct {
 	namespaces []*namespace
-	toVW       string
 }
 
 func NewFeatureSet(nss ...*namespace) *featureSet {
+	return &featureSet{
+		namespaces: nss,
+	}
+}
+func (fs *featureSet) toVW() string {
 	var sb strings.Builder
-	for _, f := range nss {
+	for _, f := range fs.namespaces {
 		sb.WriteString(f.toVW())
 		sb.WriteString(" ")
 	}
 
-	return &featureSet{
-		namespaces: nss,
-		toVW:       sb.String(),
-	}
+	return sb.String()
 }
-
 func (v *vowpal) Save() {
 	v.rw.Write([]byte(fmt.Sprintf("save_%s", v.modelPath)))
 	v.rw.Write([]byte("\n"))
@@ -144,6 +145,7 @@ func exists(f string) bool {
 func waitForFile(f string) {
 	for {
 		if exists(f) {
+			log.Printf("found %s", f)
 			return
 		}
 		log.Printf("waiting for %s", f)
@@ -170,8 +172,6 @@ func NewVowpalInstance(modelPath string) *vowpal {
 
 	log.Printf("starting vw with port file %s", fn)
 	args := []string{
-		"--random_seed",
-		"123",
 		"--quiet",
 		"-b",
 		"18",
@@ -254,18 +254,45 @@ type prediction struct {
 	ts    int64
 }
 
-func (v *bandit) Predict(items ...*item) map[int]float32 {
-	out := map[int]float32{}
+type banditScore struct {
+	score float32
+	item  *item
+}
+type ByBanditScore []banditScore
 
+func (s ByBanditScore) Len() int {
+	return len(s)
+}
+func (s ByBanditScore) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s ByBanditScore) Less(i, j int) bool {
+	return s[j].score < s[i].score
+}
+
+func (v *bandit) Predict(limit int, items ...*item) map[int]float32 {
+	scores := []banditScore{}
 	prediction := &prediction{
 		ts:    time.Now().Unix(),
 		items: map[int]*item{},
 	}
 
 	for _, item := range items {
-		out[item.id] = v.vowpal.getVowpalScore(item.features)
-		prediction.items[item.id] = item
-		v.predictions[item.id] = prediction
+		scores = append(scores, banditScore{
+			score: v.vowpal.getVowpalScore(item.features),
+			item:  item,
+		})
+	}
+
+	sort.Sort(ByBanditScore(scores))
+	if limit > len(scores) {
+		limit = len(scores)
+	}
+	out := map[int]float32{}
+	for i := 0; i < limit; i++ {
+		s := scores[i]
+		out[s.item.id] = s.score
+		prediction.items[s.item.id] = s.item
 	}
 
 	return out

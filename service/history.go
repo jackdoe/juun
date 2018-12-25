@@ -18,10 +18,39 @@ type HistoryLine struct {
 	Id        int
 }
 
-func userContext() string {
-	now := time.Now()
+func (l *HistoryLine) toVW(query string) *featureSet {
+	features := []*feature{}
+	for _, s := range strings.Split(l.Line, " ") {
+		features = append(features, NewFeature(s, 0))
+	}
+	text := NewNamespace("text", features...)
+
+	count := NewNamespace("i_count", NewFeature("count", float32(math.Log(float64(1)+float64(l.Count)))))
+	t := timeToNamespace("i_time", time.Unix(l.TimeStamp/1000000000, 0))
+
+	return NewFeatureSet(text, count, t)
+}
+
+func timeToNamespace(ns string, now time.Time) *namespace {
+	features := []*feature{}
 	hr, _, _ := now.Clock()
-	return fmt.Sprintf("year=%d day=%d month=%d hour=%d", now.Year(), now.Day(), now.Month(), hr)
+
+	features = append(features, NewFeature(fmt.Sprintf("year=%d", now.Year()), 0))
+	features = append(features, NewFeature(fmt.Sprintf("day=%d", now.Day()), 0))
+	features = append(features, NewFeature(fmt.Sprintf("month=%d", now.Month()), 0))
+	features = append(features, NewFeature(fmt.Sprintf("hour=%d", hr), 0))
+
+	return NewNamespace(ns, features...)
+}
+
+func userContext(query string) *featureSet {
+	features := []*feature{}
+	for _, s := range strings.Split(query, " ") {
+		features = append(features, NewFeature(s, 0))
+	}
+	qns := NewNamespace("c_query", features...)
+
+	return NewFeatureSet(timeToNamespace("c_user_time", time.Now()), qns)
 }
 
 type History struct {
@@ -30,7 +59,7 @@ type History struct {
 	inverted    *InvertedIndex
 	perTerminal map[int]*Terminal
 	lock        sync.Mutex
-	bandit      *bandit
+	vw          *bandit
 }
 
 func NewHistory() *History {
@@ -269,7 +298,15 @@ func (h *History) search(text string, pid int) string {
 		score = append(score, scored{query.GetDocId(), total})
 	}
 	sort.Sort(ByScore(score))
+
+	// topN := 10
+	// if topN > len(score) {
+	// 	topN = len(score)
+	// }
+
+	//	for i := 0; i <
 	// take the top 10 and sort them using vowpal wabbit's bootstrap
+
 	if len(score) > 0 {
 		return h.Lines[score[0].docId].Line
 	}
