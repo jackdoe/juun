@@ -18,10 +18,11 @@ import (
 )
 
 type vowpal struct {
-	conn net.Conn
-	cmd  *exec.Cmd
-	rw   *bufio.ReadWriter
-	fn   string
+	conn      net.Conn
+	cmd       *exec.Cmd
+	rw        *bufio.ReadWriter
+	fn        string
+	modelPath string
 }
 
 func (v *vowpal) Shutdown() {
@@ -101,6 +102,13 @@ func NewFeatureSet(nss ...*namespace) *featureSet {
 	}
 }
 
+func (v *vowpal) Save() {
+	v.rw.Write([]byte(fmt.Sprintf("save_%s", v.modelPath)))
+	v.rw.Write([]byte("\n"))
+	v.rw.Flush()
+	waitForFile(v.modelPath)
+}
+
 func (v *vowpal) SendReceive(line string) string {
 	v.rw.Write([]byte(line))
 	v.rw.Write([]byte("\n"))
@@ -126,9 +134,16 @@ func RandomString(len int) string {
 	return string(bytes)
 }
 
+func exists(f string) bool {
+	if _, err := os.Stat(f); !os.IsNotExist(err) {
+		return true
+	}
+	return false
+
+}
 func waitForFile(f string) {
 	for {
-		if _, err := os.Stat(f); !os.IsNotExist(err) {
+		if exists(f) {
 			return
 		}
 		log.Printf("waiting for %s", f)
@@ -148,7 +163,7 @@ func readPortFile(fn string) int {
 	return n
 }
 
-func NewVowpalInstance() *vowpal {
+func NewVowpalInstance(modelPath string) *vowpal {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	fn := path.Join(os.TempDir(), fmt.Sprintf("juun.%s.vw.port", RandomString(16)))
@@ -177,7 +192,15 @@ func NewVowpalInstance() *vowpal {
 		"--link",
 		"logistic",
 		"--ftrl",
+		"--save_resume",
+		"-f",
+		modelPath,
 	}
+
+	if exists(modelPath) {
+		args = append(args, "-i", modelPath)
+	}
+
 	vwCMD := run("/usr/local/bin/vw", args...)
 	vwCMD.Stdout = os.Stderr
 	vwCMD.Stderr = os.Stderr
@@ -199,7 +222,7 @@ func NewVowpalInstance() *vowpal {
 		time.Sleep(1 * time.Second)
 	}
 
-	return &vowpal{fn: fn, conn: conn, cmd: vwCMD, rw: bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))}
+	return &vowpal{fn: fn, conn: conn, cmd: vwCMD, rw: bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn)), modelPath: modelPath}
 }
 
 func (v *vowpal) getVowpalScore(features string) float32 {
@@ -217,8 +240,8 @@ type bandit struct {
 	predictions map[int]*prediction // item id -> last prediction
 }
 
-func NewBandit() *bandit {
-	return &bandit{vowpal: NewVowpalInstance(), predictions: map[int]*prediction{}}
+func NewBandit(modelPath string) *bandit {
+	return &bandit{vowpal: NewVowpalInstance(modelPath), predictions: map[int]*prediction{}}
 }
 
 type item struct {
@@ -249,7 +272,6 @@ func (v *bandit) Predict(items ...*item) map[int]float32 {
 }
 
 func (v *bandit) Click(clicked int) {
-
 	pred, ok := v.predictions[clicked]
 	if !ok {
 		return
@@ -262,10 +284,11 @@ func (v *bandit) Click(clicked int) {
 		}
 		v.vowpal.SendReceive(fmt.Sprintf("%d %s", label, item.features))
 	}
-	v.expire()
+
+	v.Expire()
 }
 
-func (v *bandit) expire() {
+func (v *bandit) Expire() {
 	// expire the old ones
 	// FIXME: train negative?
 	now := time.Now().Unix()

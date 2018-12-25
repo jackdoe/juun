@@ -18,13 +18,19 @@ type HistoryLine struct {
 	Id        int
 }
 
+func userContext() string {
+	now := time.Now()
+	hr, _, _ := now.Clock()
+	return fmt.Sprintf("year=%d day=%d month=%d hour=%d", now.Year(), now.Day(), now.Month(), hr)
+}
+
 type History struct {
 	Lines       []*HistoryLine
 	index       map[string]int
 	inverted    *InvertedIndex
 	perTerminal map[int]*Terminal
 	lock        sync.Mutex
-	vw          *vowpal
+	bandit      *bandit
 }
 
 func NewHistory() *History {
@@ -255,12 +261,12 @@ func (h *History) search(text string, pid int) string {
 			}
 		}
 
-		s := tfidf + timeScore + terminalScore
-		if s > maxScore {
-			log.Printf("tfidf: %f timeScore: %f terminalScore:%f countScore:%f, age: %ds - %s", tfidf, timeScore, terminalScore, countScore, now-ts, line.Line)
-			maxScore = s
+		total := tfidf + timeScore + terminalScore + countScore
+		if total > maxScore {
+			log.Printf("total: %f, tfidf: %f timeScore: %f terminalScore:%f countScore:%f, age: %ds - %s", total, tfidf, timeScore, terminalScore, countScore, now-ts, line.Line)
+			maxScore = total
 		}
-		score = append(score, scored{query.GetDocId(), s})
+		score = append(score, scored{query.GetDocId(), total})
 	}
 	sort.Sort(ByScore(score))
 	// take the top 10 and sort them using vowpal wabbit's bootstrap
