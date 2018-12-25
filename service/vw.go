@@ -242,7 +242,6 @@ func NewVowpalInstance(modelPath string) *vowpal {
 		"logistic",
 		"--random_seed",
 		"0",
-		"--save_resume",
 	}
 
 	if exists(modelPath) {
