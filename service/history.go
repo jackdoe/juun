@@ -91,6 +91,7 @@ func NewHistory() *History {
 
 func (h *History) selfReindex() {
 	log.Printf("starting reindexing")
+	h.index = map[string]int{}
 	h.inverted = &InvertedIndex{
 		Postings:  map[string][]uint64{},
 		TotalDocs: 0,
@@ -118,6 +119,54 @@ func (h *History) deletePID(pid int) {
 	defer h.lock.Unlock()
 
 	delete(h.perTerminal, pid)
+}
+
+func (h *History) removeLine(l string) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	id := -1
+	for _, line := range h.Lines {
+		if line.Line == l {
+			id = line.Id
+			break
+		}
+	}
+
+	if id == -1 {
+		return
+	}
+
+	// all ids after that have to be decremented to match the removal
+	for i := id + 1; i < len(h.Lines); i++ {
+		h.Lines[i].Id--
+	}
+
+	h.Lines = append(h.Lines[:id], h.Lines[id+1:]...)
+
+	h.selfReindex()
+
+	// remove it from the terminal's history and also fixup
+	for _, terminal := range h.perTerminal {
+		foundIndex := -1
+		for idx, lid := range terminal.Commands {
+			if lid == id {
+				foundIndex = idx
+			}
+		}
+
+		if foundIndex == -1 {
+			continue
+		}
+
+		for i := foundIndex + 1; i < len(terminal.Commands); i++ {
+			terminal.Commands[i]--
+		}
+
+		terminal.Commands = append(terminal.Commands[:foundIndex], terminal.Commands[foundIndex+1:]...)
+
+		terminal.end()
+	}
 }
 
 var SPLIT_REGEXP = regexp.MustCompile("[~&@%/_,\\.-]+")

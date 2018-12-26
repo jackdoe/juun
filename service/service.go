@@ -59,6 +59,9 @@ func oneLine(history *History, c net.Conn) {
 	case "delete":
 		history.deletePID(ctrl.Pid)
 
+	case "purge":
+		history.removeLine(ctrl.Payload)
+
 	case "search":
 		line := strings.Replace(ctrl.Payload, "\n", "", -1)
 		if len(line) > 0 {

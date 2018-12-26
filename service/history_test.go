@@ -13,6 +13,45 @@ func TestTime(t *testing.T) {
 	}
 }
 
+func TestRemove(t *testing.T) {
+	h := NewHistory()
+	h.add("ps 1", 1, nil)
+	h.add("ps 2", 1, nil)
+	h.add("ps 3", 1, nil)
+
+	must(t, h.up(1, "incomplete-before-up"), "ps 3") // "" -> ps 3
+	must(t, h.up(1, ""), "ps 2")                     // ps3 -> ps 2
+	must(t, h.down(1, ""), "ps 3")                   // ps 2 -> ps 3
+	must(t, h.down(1, ""), "incomplete-before-up")
+	must(t, h.up(1, ""), "ps 3")
+
+	h.removeLine("ps 2")
+	if h.search("ps 1", 1, nil) != "ps 1" {
+		t.Fatalf("ps 1 not found")
+	}
+
+	if h.search("ps 2", 1, nil) != "" {
+		t.Fatalf("ps 2 found")
+	}
+
+	must(t, h.up(1, ""), "ps 3")
+	must(t, h.up(1, ""), "ps 1")
+	h.removeLine("ps 3")
+	must(t, h.up(1, ""), "ps 1")
+	h.removeLine("ps 1")
+	must(t, h.up(1, ""), "")
+
+	h.add("ps 3", 1, nil)
+	if h.search("ps 3", 1, nil) != "ps 3" {
+		t.Fatalf("ps 3 not found")
+	}
+
+	must(t, h.up(1, ""), "ps 3")
+	h.add("ps 4", 1, nil)
+	must(t, h.up(1, ""), "ps 4")
+
+}
+
 func TestUpDownUp(t *testing.T) {
 	h := NewHistory()
 	h.add("ps 1", 1, nil)
