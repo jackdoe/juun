@@ -102,7 +102,9 @@ For example: `git diff` is featurized as
 and the user is featurized as:
 
 ```
-|c_user_time year_2018 day_25 month_12 hour_16  |c_query git
+|c_user_time year_2018 day_25 month_12 hour_16
+|c_query git
+|c_cwd juun _Users_jack_work_juun
 ```
 
 i_time is the last time this command was used, the idea is to learn patterns like: in the morning i prefer those commands, and in the evenening i prefer those
@@ -112,7 +114,7 @@ As you can see one of the features of the items is the search engine's score.
 example log line in `~/.juun.log`
 
 ```
-2018/12/25 16:54:26 sending 1 |i_id id_2  |i_text git diff  |i_count count:4.454347  |i_time year_2018 day_25 month_12 hour_16  |c_user_time year_2018 day_25 month_12 hour_16  |c_query git  |i_score tfidf:1.870803 timeScore:-0.903090 countScore:4.454347 terminalScore_100
+2018/12/25 16:54:26 sending 1 |i_id id_2  |i_text git diff  |i_count count:4.454347  |i_time year_2018 day_25 month_12 hour_16  |c_user_time year_2018 day_25 month_12 hour_16  |c_query git  |i_score tfidf:1.870803 timeScore:-0.903090 countScore:4.454347 terminalScore_100 |c_cwd juun _Users_jack_work_juun
 2018/12/25 16:54:26 received 0.624512 0.584649 0.664374
 ```
 
