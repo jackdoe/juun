@@ -13,7 +13,7 @@ in this example the search learns that by 'd' I mean `git diff`, not `dmesg`
 
 attempt to fix my bash history rage
 
-* keeps my bash history across terminals
+* keeps my bash/zsh history across terminals
 * local service that i can personalize and run some ML
 * stores it in ~/.juun.json [0600]
 * per terminal plus global history
@@ -33,7 +33,7 @@ brew install juun
 
 
 ### from source
-requires bash4.+ and golang
+requires bash4.+ or zsh, and golang
 
 ```
 go get github.com/chzyer/readline
@@ -44,11 +44,11 @@ cd juun && make
 ```
 
 ```
-make install # this will add 'source juun/dist/setup.sh' to .bash_profile
+make install # this will add 'source juun/dist/setup.sh' to .bash_profile and .zshrc
 ```
 
 this will hook up, down and ctrl+r to use juun for up/down history and search
-it also hooks to preexec() (copied from https://github.com/rcaloras/bash-preexec) and every executed command goes into the service
+it also hooks to preexec() (bash: copied from https://github.com/rcaloras/bash-preexec) and every executed command goes into the service
 
 setup.sh will always try to start `juun.service` which listens on $HOME/.juun.sock
 logs are in $HOME/.juun.log and pid is $HOME/.juun.pid
@@ -79,7 +79,7 @@ running search for `m` from one terminal gives the following score
 
 ```
 
-* tfidf `(occurances of [m] in the line) * log(1-totalNumberDocuments/documentsHaving[m])`
+* [tfidf](https://en.wikipedia.org/wiki/Tf%E2%80%93idf) `(occurances of [m] in the line) * log(1-totalNumberDocuments/documentsHaving[m])`
 * terminalScore `100 command was ran on this terminal session, 0 otherwise`
 * countScore  `log(number of times this command line was executed)`
 * timeScore `log10(seconds between now and the command)`
