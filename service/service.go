@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"github.com/sevlyar/go-daemon"
 	"io"
 	"io/ioutil"
@@ -79,7 +80,8 @@ func listen(history *History, ln net.Listener) {
 	for {
 		fd, err := ln.Accept()
 		if err != nil {
-			log.Fatal("accept error:", err)
+			log.Print("accept error:", err)
+			break
 		}
 
 		go oneLine(history, fd)
@@ -130,7 +132,6 @@ func main() {
 	if d != nil {
 		return
 	}
-	defer cntxt.Release()
 	log.Printf("loading %s, listening to: %s, model: %s", histfile, socketPath, modelFile)
 	dat, err := ioutil.ReadFile(histfile)
 	if err == nil {
@@ -156,12 +157,20 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	save := func() {
-		log.Printf("saving %s", histfile)
+
 		d1, err := json.Marshal(history)
+		tmp := fmt.Sprintf("%s.tmp", histfile)
+		log.Printf("saving %s", tmp)
 		if err == nil {
-			err := ioutil.WriteFile(histfile, d1, 0600)
+			err := ioutil.WriteFile(tmp, d1, 0600)
 			if err != nil {
 				log.Printf("%s", err.Error())
+			} else {
+				log.Printf("renaming %s to %s", tmp, histfile)
+				err := os.Rename(tmp, histfile)
+				if err != nil {
+					log.Printf("%s", err.Error())
+				}
 			}
 		} else {
 			log.Printf("%s", err.Error())
@@ -171,8 +180,7 @@ func main() {
 		}
 	}
 
-	go func() {
-		<-sigs
+	cleanup := func() {
 		log.Printf("closing")
 		save()
 		os.Chmod(modelFile, 0600)
@@ -180,12 +188,22 @@ func main() {
 		if vw != nil {
 			vw.Shutdown()
 		}
+		cntxt.Release()
 		os.Exit(0)
+	}
+
+	go func() {
+		<-sigs
+		cleanup()
 	}()
 
-	go listen(history, sock)
-	for {
-		save()
-		time.Sleep(300 * time.Second)
-	}
+	go func() {
+		for {
+			save()
+			time.Sleep(300 * time.Second)
+		}
+	}()
+
+	listen(history, sock)
+	cleanup()
 }

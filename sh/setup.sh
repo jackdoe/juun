@@ -1,3 +1,37 @@
+juun_restart() {
+    juun_stop
+
+    sleep 1
+
+    juun_start
+
+    sleep 2
+
+    tail -10 ~/.juun.log
+}
+
+juun_stop() {
+    if [ -f ~/.juun.pid ]; then
+        kill $(cat ~/.juun.pid) 2>/dev/null
+    fi
+
+    if [ -f ~/.juun.vw.pid ]; then
+        kill $(cat ~/.juun.vw.pid) 2>/dev/null
+    fi
+}
+
+juun_start() {
+    $ROOT/juun.service || echo 'unable to start juun.service'
+}
+
+juun_work() {
+    $ROOT/juun.updown $1 $$ "$2"
+}
+
+juun_cleanup () {
+    juun_work delete $$
+}
+
 if [[ -n "$BASH" ]]; then
     _realpath() {
         [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
@@ -10,26 +44,16 @@ if [[ -n "$BASH" ]]; then
         source $ROOT/preexec.sh
 
         preexec () {
-            work add "$1"
+            juun_work add "$1"
         }
 
         precmd () {
-            work end end
+            juun_work end end
         }
 
+        trap 'juun_cleanup' EXIT
 
-        cleanup () {
-            work delete $$
-        }
-
-        trap 'cleanup' EXIT
-
-        work() {
-            $ROOT/juun.updown $1 $$ "$2"
-        }
-
-        _search_start() {
-
+        juun_search_start() {
             $ROOT/juun.search $$ 2>/tmp/juun.search.$$
             rc=$?
             res=$(cat /tmp/juun.search.$$)
@@ -37,54 +61,51 @@ if [[ -n "$BASH" ]]; then
             if [ $rc -eq 0 ]; then
                 echo $res
                 # FIXME: add it to the normal history?
+                READLINE_LINE=""
+                READLINE_POINT=""
+
                 eval "$res"
-                work "add" "$res"
+                juun_work "add" "$res"
+            else
+                READLINE_LINE="$res"
+                READLINE_POINT=${#READLINE_LINE}
             fi
-            READLINE_LINE=""
-            READLINE_POINT=""
         }
 
-        _down() {
-            res=$(work down $READLINE_LINE)
+        juun_down() {
+            res=$(juun_work down $READLINE_LINE)
             READLINE_LINE="$res"
             READLINE_POINT="${#READLINE_LINE}"
         }
 
-        _up() {
-            res=$(work up $READLINE_LINE)
+        juun_up() {
+            res=$(juun_work up $READLINE_LINE)
             READLINE_LINE="$res"
             READLINE_POINT="${#READLINE_LINE}"
         }
 
-        bind -x '"\e[A": _up'
-        bind -x '"\e[B": _down'
-        bind -x '"\C-p": _up'
-        bind -x '"\C-n": _down'
-        bind -x '"\C-r": "_search_start"'
+        bind -x '"\e[A": juun_up'
+        bind -x '"\e[B": juun_down'
+        bind -x '"\C-p": juun_up'
+        bind -x '"\C-n": juun_down'
+        bind -x '"\C-r": "juun_search_start"'
 
-        $ROOT/juun.service || "failed to start juun"
+        juun_start
     fi
 elif [[ -n "$ZSH_VERSION" ]]; then
     ROOT=$(dirname $0:A)
 
-    cleanup () {
-        work delete $$
-    }
-    trap 'cleanup' EXIT
-
-    work() {
-        $ROOT/juun.updown $1 $$ "$2"
-    }
+    trap 'juun_cleanup' EXIT
 
     preexec () {
-        work add "$1"
+        juun_work add "$1"
     }
 
     precmd () {
-        work end end
+        juun_work end end
     }
 
-    _search_start() {
+    juun_search_start() {
         zle -I
         </dev/tty $ROOT/juun.search $$ 2>/tmp/juun.search.$$
         rc=$?
@@ -94,7 +115,7 @@ elif [[ -n "$ZSH_VERSION" ]]; then
         if [ $rc -eq 0 ]; then
             BUFFER="$res"
             CURSOR=${#BUFFER}
-            work "add" "$res"
+            juun_work "add" "$res"
             zle accept-line
         else
             BUFFER="$res"
@@ -102,28 +123,28 @@ elif [[ -n "$ZSH_VERSION" ]]; then
         fi
     }
 
-    _down() {
-        BUFFER=$(work down $BUFFER)
+    juun_down() {
+        BUFFER=$(juun_work down $BUFFER)
         CURSOR=${#BUFFER}
     }
 
 
-    _up() {
-        BUFFER=$(work up $BUFFER)
+    juun_up() {
+        BUFFER=$(juun_work up $BUFFER)
         CURSOR=${#BUFFER}
     }
 
-    zle -N _up
-    zle -N _down
-    zle -N _search_start
+    zle -N juun_up
+    zle -N juun_down
+    zle -N juun_search_start
 
-    bindkey "^[[A" _up
-    bindkey "^[[B" _down
-    bindkey "^p" _up
-    bindkey "^n" _down
-    bindkey "^R" _search_start
+    bindkey "^[[A" juun_up
+    bindkey "^[[B" juun_down
+    bindkey "^p" juun_up
+    bindkey "^n" juun_down
+    bindkey "^R" juun_search_start
 
-    $ROOT/juun.service || "failed to start juun"
+    juun_start
 else
     echo "Sorry, you need bash-4.+ or zsh to use juun."
 fi

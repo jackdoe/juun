@@ -232,6 +232,8 @@ func NewVowpalInstance(modelPath string) *vowpal {
 		"--quiet",
 		"--port",
 		"0",
+		"--pid_file",
+		fmt.Sprintf("%s.pid", modelPath),
 		"--port_file",
 		fn,
 		"--no_stdin",
