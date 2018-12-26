@@ -9,7 +9,7 @@
 
 in this example the search learns that by 'd' I mean `git diff`, not `dmesg`
 
-## work in progress
+## [Here be dragons](https://en.wikipedia.org/wiki/Here_be_dragons)
 
 attempt to fix my bash history rage
 
