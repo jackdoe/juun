@@ -1,6 +1,13 @@
 # JUUN - history forever
 
-![logo](https://github.com/jackdoe/juun/raw/master/logo.png)
+![logo](https://github.com/jackdoe/juun/raw/master/logo-small.png)
+
+
+## learn damnit
+
+![video](https://github.com/jackdoe/juun/raw/master/learn.gif)
+
+in this example the search learns that by 'd' I mean `git diff`, not `dmesg`
 
 ## work in progress
 
@@ -13,8 +20,6 @@ attempt to fix my bash history rage
 + has per terminal local state and when that is exhausted it uses the global history to go back
 
 this annoys me so much in the current history(1) it is unbelivable
-
-
 
 ## install/run
 
