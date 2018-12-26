@@ -1,4 +1,4 @@
-package main
+package vw
 
 import (
 	"bufio"
@@ -43,73 +43,73 @@ func (v *vowpal) Shutdown() {
 
 var CLEANUP_REG = regexp.MustCompile("[^a-zA-Z0-9]+")
 
-type feature struct {
+type Feature struct {
 	feature string
 	value   float32
 }
 
-func NewFeature(f string, value float32) *feature {
+func NewFeature(f string, value float32) *Feature {
 	clean := CLEANUP_REG.ReplaceAllString(f, "_")
 	if len(clean) == 0 {
 		clean = "_"
 	}
-	return &feature{
+	return &Feature{
 		feature: clean,
 		value:   value,
 	}
 }
 
-func (f *feature) toVW() string {
+func (f *Feature) ToVW() string {
 	if f.value != 0 {
 		return fmt.Sprintf("%s:%f", f.feature, f.value)
 	}
 	return fmt.Sprintf("%s", f.feature)
 }
 
-type namespace struct {
+type Namespace struct {
 	ns       string
-	features []*feature
+	features []*Feature
 }
 
-func NewNamespace(ns string, fs ...*feature) *namespace {
-	return &namespace{
+func NewNamespace(ns string, fs ...*Feature) *Namespace {
+	return &Namespace{
 		ns:       ns,
 		features: fs,
 	}
 }
 
-func (n *namespace) toVW() string {
+func (n *Namespace) ToVW() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("|%s ", n.ns))
 	for _, f := range n.features {
-		sb.WriteString(f.toVW())
+		sb.WriteString(f.ToVW())
 		sb.WriteString(" ")
 	}
 	return sb.String()
 }
 
-type featureSet struct {
-	namespaces []*namespace
+type FeatureSet struct {
+	namespaces []*Namespace
 }
 
-func NewFeatureSet(nss ...*namespace) *featureSet {
-	return &featureSet{
+func NewFeatureSet(nss ...*Namespace) *FeatureSet {
+	return &FeatureSet{
 		namespaces: nss,
 	}
 }
 
-func (fs *featureSet) addNamespaces(nss ...*namespace) {
+func (fs *FeatureSet) AddNamespaces(nss ...*Namespace) {
 	fs.namespaces = append(fs.namespaces, nss...)
 }
 
-func (fs *featureSet) add(other *featureSet) {
+func (fs *FeatureSet) Add(other *FeatureSet) {
 	fs.namespaces = append(fs.namespaces, other.namespaces...)
 }
 
-func (fs *featureSet) toVW() string {
+func (fs *FeatureSet) ToVW() string {
 	var sb strings.Builder
 	for _, f := range fs.namespaces {
-		sb.WriteString(f.toVW())
+		sb.WriteString(f.ToVW())
 		sb.WriteString(" ")
 	}
 
@@ -305,30 +305,37 @@ func (v *vowpal) getVowpalScore(features string) float32 {
 	return float32(f)
 }
 
-type bandit struct {
+type Bandit struct {
 	*vowpal
 	predictions map[int]*prediction // item id -> last prediction
 }
 
-func NewBandit(modelPath string) *bandit {
-	return &bandit{vowpal: NewVowpalInstance(modelPath), predictions: map[int]*prediction{}}
+func NewBandit(modelPath string) *Bandit {
+	return &Bandit{vowpal: NewVowpalInstance(modelPath), predictions: map[int]*prediction{}}
 }
 
-type item struct {
+type Item struct {
 	id       int
 	features string
 }
 
+func NewItem(id int, features string) *Item {
+	return &Item{
+		id:       id,
+		features: features,
+	}
+}
+
 type prediction struct {
-	items map[int]*item
+	items map[int]*Item
 	ts    int64
 }
 
-type banditScore struct {
+type BanditScore struct {
 	score float32
-	item  *item
+	item  *Item
 }
-type ByBanditScore []banditScore
+type ByBanditScore []BanditScore
 
 func (s ByBanditScore) Len() int {
 	return len(s)
@@ -340,15 +347,15 @@ func (s ByBanditScore) Less(i, j int) bool {
 	return s[j].score < s[i].score
 }
 
-func (v *bandit) Predict(limit int, items ...*item) map[int]float32 {
-	scores := []banditScore{}
+func (v *Bandit) Predict(limit int, items ...*Item) map[int]float32 {
+	scores := []BanditScore{}
 	prediction := &prediction{
 		ts:    time.Now().Unix(),
-		items: map[int]*item{},
+		items: map[int]*Item{},
 	}
 
 	for _, item := range items {
-		scores = append(scores, banditScore{
+		scores = append(scores, BanditScore{
 			score: v.vowpal.getVowpalScore(item.features),
 			item:  item,
 		})
@@ -377,7 +384,7 @@ func (v *bandit) Predict(limit int, items ...*item) map[int]float32 {
 	return out
 }
 
-func (v *bandit) Click(clicked int) {
+func (v *Bandit) Click(clicked int) {
 	pred, ok := v.predictions[clicked]
 	if ok {
 		for _, item := range pred.items {
@@ -393,7 +400,7 @@ func (v *bandit) Click(clicked int) {
 	v.Expire()
 }
 
-func (v *bandit) Expire() {
+func (v *Bandit) Expire() {
 	// expire the old ones
 	// FIXME: train negative?
 	now := time.Now().Unix()

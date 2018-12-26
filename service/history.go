@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	. "github.com/jackdoe/juun/common"
+	. "github.com/jackdoe/juun/vw"
 	"log"
 	"math"
 	"regexp"
@@ -18,8 +20,8 @@ type HistoryLine struct {
 	Id        int
 }
 
-func (l *HistoryLine) featurize() *featureSet {
-	features := []*feature{}
+func (l *HistoryLine) featurize() *FeatureSet {
+	features := []*Feature{}
 	for _, s := range strings.Split(l.Line, " ") {
 		features = append(features, NewFeature(s, 0))
 	}
@@ -32,8 +34,8 @@ func (l *HistoryLine) featurize() *featureSet {
 	return NewFeatureSet(id, text, count, t)
 }
 
-func timeToNamespace(ns string, now time.Time) *namespace {
-	features := []*feature{}
+func timeToNamespace(ns string, now time.Time) *Namespace {
+	features := []*Feature{}
 	hr, _, _ := now.Clock()
 
 	features = append(features, NewFeature(fmt.Sprintf("year=%d", now.Year()), 0))
@@ -44,8 +46,8 @@ func timeToNamespace(ns string, now time.Time) *namespace {
 	return NewNamespace(ns, features...)
 }
 
-func userContext(query string) *featureSet {
-	features := []*feature{}
+func userContext(query string, cwd string) *FeatureSet {
+	features := []*Feature{}
 	for _, s := range strings.Split(query, " ") {
 		if len(s) > 0 {
 			features = append(features, NewFeature(s, 0))
@@ -53,7 +55,17 @@ func userContext(query string) *featureSet {
 	}
 	qns := NewNamespace("c_query", features...)
 
-	return NewFeatureSet(timeToNamespace("c_user_time", time.Now()), qns)
+	fs := NewFeatureSet(timeToNamespace("c_user_time", time.Now()), qns)
+	if cwd != "" {
+		splitted := strings.Split(cwd, "/")
+		features := []*Feature{}
+		if len(splitted) > 0 {
+			features = append(features, NewFeature(splitted[len(splitted)-1], 0))
+		}
+		features = append(features, NewFeature(cwd, 0))
+		fs.AddNamespaces(NewNamespace("c_cwd", features...))
+	}
+	return fs
 }
 
 type History struct {
@@ -62,7 +74,7 @@ type History struct {
 	inverted    *InvertedIndex
 	perTerminal map[int]*Terminal
 	lock        sync.Mutex
-	vw          *bandit
+	vw          *Bandit
 }
 
 func NewHistory() *History {
@@ -138,7 +150,7 @@ func edge(text string) []string {
 	return out
 }
 
-func (h *History) add(line string, pid int) {
+func (h *History) add(line string, pid int, env map[string]string) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
@@ -180,7 +192,7 @@ func (h *History) add(line string, pid int) {
 
 	if h.vw != nil {
 		h.vw.Click(id)
-		h.like(h.Lines[id])
+		h.like(h.Lines[id], env)
 	}
 
 	t.add(id)
@@ -266,7 +278,7 @@ func (s ByScore) Less(i, j int) bool {
 
 const scoreOnTerminal = float32(100)
 
-func (h *History) search(text string, pid int) string {
+func (h *History) search(text string, pid int, env map[string]string) string {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
@@ -280,7 +292,7 @@ func (h *History) search(text string, pid int) string {
 		terms = append(terms, h.inverted.term("e", s))
 	}
 
-	query := NewBoolOrQuery(terms)
+	query := NewBoolAndQuery(terms)
 	score := []scored{}
 	terminal, hasTerminal := h.perTerminal[pid]
 
@@ -320,25 +332,22 @@ func (h *History) search(text string, pid int) string {
 			topN = len(score)
 		}
 
-		ctx := userContext(text)
-		vwi := []*item{}
+		ctx := userContext(text, GetOrDefault(env, "cwd", ""))
+		vwi := []*Item{}
 		for i := 0; i < topN; i++ {
 			s := score[i]
 			line := h.Lines[s.id]
 
 			f := line.featurize()
-			f.add(ctx)
-			f.addNamespaces(
+			f.Add(ctx)
+			f.AddNamespaces(
 				NewNamespace("i_score",
 					NewFeature("tfidf", s.tfidf),
 					NewFeature("timeScore", s.timeScore),
 					NewFeature("countScore", s.countScore),
 					NewFeature(fmt.Sprintf("terminalScore=%d", int(s.terminalScore)), 0)))
 
-			vwi = append(vwi, &item{
-				features: f.toVW(),
-				id:       line.Id,
-			})
+			vwi = append(vwi, NewItem(line.Id, f.ToVW()))
 		}
 
 		prediction := h.vw.Predict(1, vwi...)
@@ -353,14 +362,14 @@ func (h *History) search(text string, pid int) string {
 	return ""
 }
 
-func (h *History) like(line *HistoryLine) {
+func (h *History) like(line *HistoryLine, env map[string]string) {
 	if h.vw == nil {
 		return
 	}
 
-	ctx := userContext("")
+	ctx := userContext("", GetOrDefault(env, "cwd", ""))
 	f := line.featurize()
-	f.add(ctx)
-	f.addNamespaces(NewNamespace("i_score", NewFeature(fmt.Sprintf("terminalScore=%d", int(scoreOnTerminal)), 0)))
-	h.vw.SendReceive(fmt.Sprintf("1 %s", f.toVW()))
+	f.Add(ctx)
+	f.AddNamespaces(NewNamespace("i_score", NewFeature(fmt.Sprintf("terminalScore=%d", int(scoreOnTerminal)), 0)))
+	h.vw.SendReceive(fmt.Sprintf("1 %s", f.ToVW()))
 }

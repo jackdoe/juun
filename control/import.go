@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	. "github.com/jackdoe/juun/common"
 	"log"
 	"os"
 	"strings"
@@ -16,12 +17,12 @@ func main() {
 		if len(splitted) == 2 {
 			s := strings.Replace(splitted[1], "\\n", "\n", -1)
 			log.Printf("adding %s", s)
-			query("add", pid, s)
+			QueryService("add", pid, s)
 		}
 	}
 
 	if scanner.Err() != nil {
 		log.Printf("err: %s", scanner.Err())
 	}
-	query("delete", pid, "delete")
+	QueryService("delete", pid, "delete")
 }

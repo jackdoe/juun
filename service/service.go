@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	. "github.com/jackdoe/juun/common"
+	. "github.com/jackdoe/juun/vw"
 	"github.com/sevlyar/go-daemon"
 	"io"
 	"io/ioutil"
@@ -19,11 +21,6 @@ import (
 	"time"
 )
 
-func intOrZero(s string) int {
-	pid, _ := strconv.Atoi(s)
-	return pid
-}
-
 func oneLine(history *History, c net.Conn) {
 	hdr := make([]byte, 4)
 	_, err := io.ReadFull(c, hdr)
@@ -32,47 +29,49 @@ func oneLine(history *History, c net.Conn) {
 		return
 	}
 	dataLen := binary.LittleEndian.Uint32(hdr)
+
 	data := make([]byte, dataLen)
 	_, err = io.ReadFull(c, data)
 	if err != nil {
+		log.Printf("err: %s", err.Error())
+		c.Close()
+		return
+	}
+	ctrl := &Control{}
+	err = json.Unmarshal(data, ctrl)
+	if err != nil {
+		log.Printf("err: %s", err.Error())
 		c.Close()
 		return
 	}
 
-	input := string(data)
-
-	// cmd pid rest
-	if err == nil {
-		splitted := strings.SplitN(input, " ", 3)
-		pid := intOrZero(splitted[1])
-		line := splitted[2]
-		out := ""
-		log.Printf("datalen: %d pid: %d action %s line: %s", dataLen, pid, splitted[0], line)
-		switch splitted[0] {
-		case "add":
-			if len(line) > 0 {
-				history.add(line, pid)
-			}
-
-		case "end":
-			history.gotoend(pid)
-
-		case "delete":
-			history.deletePID(pid)
-
-		case "search":
-			line = strings.Replace(line, "\n", "", -1)
-			if len(line) > 0 {
-				out = history.search(line, pid)
-			}
-		case "up":
-			out = history.up(pid, line)
-		case "down":
-			out = history.down(pid, line)
-
+	out := ""
+	log.Printf("datalen: %d %#v", dataLen, ctrl)
+	switch ctrl.Command {
+	case "add":
+		if len(ctrl.Payload) > 0 {
+			history.add(ctrl.Payload, ctrl.Pid, ctrl.Env)
 		}
-		c.Write([]byte(out))
+
+	case "end":
+		history.gotoend(ctrl.Pid)
+
+	case "delete":
+		history.deletePID(ctrl.Pid)
+
+	case "search":
+		line := strings.Replace(ctrl.Payload, "\n", "", -1)
+		if len(line) > 0 {
+			out = history.search(line, ctrl.Pid, ctrl.Env)
+		}
+	case "up":
+		out = history.up(ctrl.Pid, ctrl.Payload)
+	case "down":
+		out = history.down(ctrl.Pid, ctrl.Payload)
 	}
+
+	c.Write([]byte(out))
+
 	c.Close()
 }
 
@@ -100,18 +99,25 @@ func isRunning(pidFile string) bool {
 	}
 	return false
 }
+func getHome() string {
+	home := os.Getenv("HOME")
+	if home == "" {
+		usr, err := user.Current()
+		if err != nil {
+			log.Fatal(err)
+		}
+		home = usr.HomeDir
+	}
+	return home
+}
 
 func main() {
 	history := NewHistory()
-	usr, err := user.Current()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	histfile := path.Join(usr.HomeDir, ".juun.json")
-	socketPath := path.Join(usr.HomeDir, ".juun.sock")
-	pidFile := path.Join(usr.HomeDir, ".juun.pid")
-	modelFile := path.Join(usr.HomeDir, ".juun.vw")
+	home := GetHome()
+	histfile := path.Join(home, ".juun.json")
+	socketPath := path.Join(home, ".juun.sock")
+	pidFile := path.Join(home, ".juun.pid")
+	modelFile := path.Join(home, ".juun.vw")
 	if isRunning(pidFile) {
 		os.Exit(0)
 	}
@@ -119,9 +125,9 @@ func main() {
 	cntxt := &daemon.Context{
 		PidFileName: pidFile,
 		PidFilePerm: 0600,
-		LogFileName: path.Join(usr.HomeDir, ".juun.log"),
+		LogFileName: path.Join(home, ".juun.log"),
 		LogFilePerm: 0600,
-		WorkDir:     usr.HomeDir,
+		WorkDir:     home,
 		Umask:       027,
 	}
 

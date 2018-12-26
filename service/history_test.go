@@ -1,12 +1,23 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
+
+func TestTime(t *testing.T) {
+	got := timeToNamespace("i_abc", time.Unix(0, 0)).ToVW()
+	expected := "|i_abc year_1970 day_1 month_1 hour_1 "
+	if got != expected {
+		t.Fatalf("wrong time features, expecte: '%s', got '%s'", expected, got)
+	}
+}
 
 func TestUpDownUp(t *testing.T) {
 	h := NewHistory()
-	h.add("ps 1", 1)
-	h.add("ps 2", 1)
-	h.add("ps 3", 1)
+	h.add("ps 1", 1, nil)
+	h.add("ps 2", 1, nil)
+	h.add("ps 3", 1, nil)
 
 	must(t, h.up(1, "incomplete-before-up"), "ps 3") // "" -> ps 3
 	must(t, h.up(1, ""), "ps 2")                     // ps3 -> ps 2
@@ -17,18 +28,18 @@ func TestUpDownUp(t *testing.T) {
 
 func TestHistory(t *testing.T) {
 	h := NewHistory()
-	h.add("make", 1)
-	h.add("make", 2)
-	h.add("make", 2)
+	h.add("make", 1, nil)
+	h.add("make", 2, nil)
+	h.add("make", 2, nil)
 
 	if len(h.Lines) != 1 {
 		t.Fatalf("expected only 1 line")
 	}
-	if h.search("m", 1) != "make" {
+	if h.search("m", 1, nil) != "make" {
 		t.Fatalf("make not found")
 	}
 
-	if h.search("make", 1) != "make" {
+	if h.search("make", 1, nil) != "make" {
 		t.Fatalf("make not found")
 	}
 }
@@ -42,9 +53,9 @@ func must(t *testing.T, a, b string) {
 
 func TestHistoryChange(t *testing.T) {
 	h := NewHistory()
-	h.add("first-terminal-ps 1", 1)                                 // global id 0
-	h.add("ps 2", 2)                                                // global id 1
-	h.add("ps 3", 2)                                                // global id 1
+	h.add("first-terminal-ps 1", 1, nil)                            // global id 0
+	h.add("ps 2", 2, nil)                                           // global id 1
+	h.add("ps 3", 2, nil)                                           // global id 1
 	must(t, h.up(2, "incomplete-before-up"), "ps 3")                // global id 1, cursor 2
 	must(t, h.up(2, "incomplete-before-up"), "ps 2")                // global id 1, cursor 0
 	must(t, h.up(2, "incomplete-before-up"), "first-terminal-ps 1") // global id 1, cursor 0
@@ -52,13 +63,13 @@ func TestHistoryChange(t *testing.T) {
 
 func TestGlobalHistory2(t *testing.T) {
 	h := NewHistory()
-	h.add("ps 2", 1) // -> 0
-	h.add("ps 3", 1) // -> 1
-	h.add("ps 4", 1) // -> 2
+	h.add("ps 2", 1, nil) // -> 0
+	h.add("ps 3", 1, nil) // -> 1
+	h.add("ps 4", 1, nil) // -> 2
 
-	h.add("zs 1", 2)
-	h.add("zs 2", 2)
-	h.add("zs 3", 2)
+	h.add("zs 1", 2, nil)
+	h.add("zs 2", 2, nil)
+	h.add("zs 3", 2, nil)
 
 	must(t, h.up(3, "incomplete-before-up"), "zs 3")
 	must(t, h.up(3, ""), "zs 2")
@@ -76,15 +87,15 @@ func TestGlobalHistory2(t *testing.T) {
 
 func TestGlobalHistory(t *testing.T) {
 	h := NewHistory()
-	h.add("ps 2", 1)
-	h.add("ps 3", 1)
-	h.add("ps 4", 1)
+	h.add("ps 2", 1, nil)
+	h.add("ps 3", 1, nil)
+	h.add("ps 4", 1, nil)
 
-	h.add("zs 1", 2)
-	h.add("zs 2", 2)
+	h.add("zs 1", 2, nil)
+	h.add("zs 2", 2, nil)
 
-	h.add("zs 3", 2)
-	h.add("zs x", 3)
+	h.add("zs 3", 2, nil)
+	h.add("zs x", 3, nil)
 
 	must(t, h.up(3, "incomplete-before-up"), "zs x")
 	must(t, h.up(3, ""), "zs 3")
@@ -104,9 +115,9 @@ func TestGlobalHistory(t *testing.T) {
 
 func TestUpDownUpGlobal(t *testing.T) {
 	h := NewHistory()
-	h.add("ps 1", 2) //0
-	h.add("ps 2", 2) //1
-	h.add("ps 3", 2) //2
+	h.add("ps 1", 2, nil) //0
+	h.add("ps 2", 2, nil) //1
+	h.add("ps 3", 2, nil) //2
 
 	must(t, h.up(1, "incomplete-before-up"), "ps 3") // 2 -> 1
 	must(t, h.up(1, ""), "ps 2")                     // 1 -> 0
@@ -123,14 +134,14 @@ func TestHistoryUpDown(t *testing.T) {
 	must(t, h.up(1, "incomplete"), "")
 	must(t, h.down(1, ""), "incomplete")
 
-	h.add("ps 1", 1)
+	h.add("ps 1", 1, nil)
 
 	must(t, h.up(1, "incomplete"), "ps 1")
 	must(t, h.down(1, ""), "incomplete")
 
-	h.add("ps 2", 1)
-	h.add("ps 3", 1)
-	h.add("ps 4", 1)
+	h.add("ps 2", 1, nil)
+	h.add("ps 3", 1, nil)
+	h.add("ps 4", 1, nil)
 
 	must(t, h.up(1, "incomplete-before-up"), "ps 4")
 	for i := 0; i < 100; i++ {
@@ -146,23 +157,23 @@ func TestHistoryUpDown(t *testing.T) {
 
 func TestUpDownUpUpGlobal(t *testing.T) {
 	h := NewHistory()
-	h.add("ps 1", 2) //0
+	h.add("ps 1", 2, nil) //0
 	must(t, h.up(1, "a"), "ps 1")
 	must(t, h.down(1, ""), "a")
 	must(t, h.up(1, "a"), "ps 1")
 	must(t, h.down(1, ""), "a")
 	must(t, h.up(1, "a"), "ps 1")
 	must(t, h.down(1, ""), "a")
-	h.add("ps 2", 2) //0
+	h.add("ps 2", 2, nil) //0
 	must(t, h.up(1, "a"), "ps 1")
 	must(t, h.down(1, ""), "a")
 }
 
 func TestUpDownUpLocal(t *testing.T) {
 	h := NewHistory()
-	h.add("ps 1", 1) //0
-	h.add("ps 2", 1) //1
-	h.add("ps 3", 1) //2
+	h.add("ps 1", 1, nil) //0
+	h.add("ps 2", 1, nil) //1
+	h.add("ps 3", 1, nil) //2
 
 	must(t, h.up(1, "incomplete-before-up"), "ps 3") // 2 -> 1
 	must(t, h.up(1, ""), "ps 2")                     // 1 -> 0
@@ -174,9 +185,9 @@ func TestUpDownUpLocal(t *testing.T) {
 
 func TestHistoryUpDownMany(t *testing.T) {
 	h := NewHistory()
-	h.add("ps 2", 1)
-	h.add("ps 3", 1)
-	h.add("ps 4", 1)
+	h.add("ps 2", 1, nil)
+	h.add("ps 3", 1, nil)
+	h.add("ps 4", 1, nil)
 
 	must(t, h.up(1, "incomplete-before-up"), "ps 4")
 	for i := 0; i < 10; i++ {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/chzyer/readline"
+	. "github.com/jackdoe/juun/common"
 	"os"
 	"strings"
 )
@@ -33,7 +34,7 @@ func main() {
 	result := ""
 	cfg.SetListener(func(line []rune, pos int, key rune) (newLine []rune, newPos int, ok bool) {
 		if line != nil {
-			result = query("search", os.Args[1], string(line))
+			result = QueryService("search", os.Args[1], string(line))
 			rl.SetPrompt(fmt.Sprintf("%s \033[31m»\033[0m ", strings.Replace(result, "\n", "\\n", -1)))
 		}
 		rl.Refresh()
