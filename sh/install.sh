@@ -26,12 +26,15 @@ do_install() {
     rc=$?
 
     if [ $rc -eq 0 ]; then
-        echo "already installed in $HOME/$fn"
+        echo "already installed in $HOME/$fn, skipping this step"
     else
         echo "adding $ROOT/setup.sh to $HOME/$fn"
         echo source $ROOT/setup.sh >> $HOME/$fn
+        echo "run 'history | $ROOT/juun.import' to import your current history"
+        echo
     fi
 
+    echo
     which vw > /dev/null 2>/dev/null
     rc=$?
     if [ $rc -ne 0 ]; then
@@ -39,30 +42,26 @@ do_install() {
     else
         echo "found VowpalWabbit in $(which vw)"
     fi
-
-    echo
-    echo "run 'history | $ROOT/juun.import' in order to import your current history"
 }
 
 
-
-who=$(which_shell)
-
-echo "assuming $who as main shell"
+echo
+echo "assuming $SHELL as main shell"
 echo
 
 post_install() {
     echo
-    echo "restarting juun.service from '$who'"
+    echo "restarting juun.service from '$SHELL'"
     echo
     
-    $who -c "export JUUN_DONT_BIND_BASH=1 && source $ROOT/setup.sh && juun_restart"
+    $SHELL -c "export JUUN_DONT_BIND_BASH=1 && source $ROOT/setup.sh && juun_restart"
 
     echo
     echo "done"
     echo
 }
 
+who=$(which_shell)
 if [ "bash" = "$who" ]; then
     _realpath() {
         [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"

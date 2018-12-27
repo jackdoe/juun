@@ -1,3 +1,4 @@
+# mostly copied from https://github.com/gugod/App-perlbrew/blob/develop/perlbrew-install
 
 os="darwin"
 arch="amd64"
