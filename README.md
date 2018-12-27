@@ -23,6 +23,17 @@ this annoys me so much in the current history(1) it is unbelivable
 
 ## install/run
 
+### with curl
+
+supported:
+* macos amd64
+* linux amd64
+* freebsd amd64
+
+```
+curl -L https://raw.githubusercontent.com/jackdoe/juun/master/download-and-install.sh | bash
+```
+
 ### with homebrew:
 
 ```
@@ -30,6 +41,7 @@ brew tap jackdoe/tap
 brew install juun
 ```
 (then you need to follow the instructions)
+
 
 
 ### from source

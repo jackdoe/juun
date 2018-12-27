@@ -1,20 +1,13 @@
-who_started_me() {
-    # in case of curl .. | sh ..
-    # the script is started by sh, but the PPID is actually whatever the user is using
-    # so check if it is zsh, or bash and check the bash version
-    comm=$(ps -o comm $PPID | tail -1)
-    echo $comm | grep zsh > /dev/null 2>/dev/null
+which_shell() {
+    echo $SHELL | grep zsh > /dev/null 2>/dev/null
     rc=$?
     if [ $rc -eq 0 ]; then
         echo "zsh"
     else
-        echo $comm | grep bash > /dev/null 2>/dev/null
+        echo $SHELL | grep bash > /dev/null 2>/dev/null
         rc=$?
         if [ $rc -eq 0 ]; then
-            # assume first bash in path is the one that started the script
-            # maybe its better to check /etc/passwd for the shell?
-
-            bash -version | grep "version 4" > /dev/null 2>/dev/null
+            $SHELL -version | grep "version 4" > /dev/null 2>/dev/null
             rc=$?
             if [ $rc -eq 0 ]; then
                 echo "bash"
@@ -53,7 +46,7 @@ do_install() {
 
 
 
-who=$(who_started_me)
+who=$(which_shell)
 
 echo "assuming $who as main shell"
 echo
@@ -63,7 +56,7 @@ post_install() {
     echo "restarting juun.service from '$who'"
     echo
     
-    $who -c "export JUUN_BIND_BASH=1 && source $ROOT/setup.sh && juun_restart"
+    $who -c "export JUUN_DONT_BIND_BASH=1 && source $ROOT/setup.sh && juun_restart"
 
     echo
     echo "done"

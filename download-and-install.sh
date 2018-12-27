@@ -55,7 +55,7 @@ $JUUNDOWNLOAD || clean_exit 1
 echo
 
 DEST=~/.juun.dist
-mkdir $DEST
+mkdir -p $DEST
 
 tar -C $DEST -xf ./$LOCALINSTALLER && $DEST/install.sh
 

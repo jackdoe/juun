@@ -84,7 +84,7 @@ if [[ -n "$BASH" ]]; then
             READLINE_POINT="${#READLINE_LINE}"
         }
         
-        if [ "x$JUUN_BIND_BASH" = "x" ]; then
+        if [ "x$JUUN_DONT_BIND_BASH" = "x" ]; then
             bind -x '"\e[A": juun_up'
             bind -x '"\e[B": juun_down'
             bind -x '"\C-p": juun_up'
