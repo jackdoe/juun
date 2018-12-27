@@ -26,9 +26,9 @@ this annoys me so much in the current history(1) it is unbelivable
 ### with curl
 
 supported:
-* macos amd64
-* linux amd64
-* freebsd amd64
+* macos amd64 [tested by me and some friends]
+* linux amd64 [tested on travisci]
+* freebsd amd64 [compiled, but not tested]
 
 ```
 curl -L https://raw.githubusercontent.com/jackdoe/juun/master/download-and-install.sh | bash
@@ -41,7 +41,6 @@ brew tap jackdoe/tap
 brew install juun
 ```
 (then you need to follow the instructions)
-
 
 
 ### from source
