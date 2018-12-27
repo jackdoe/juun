@@ -22,16 +22,20 @@ which_shell() {
 
 do_install() {
     fn=$1
-    cat $HOME/$fn | grep juun | grep "setup.sh" > /dev/null 2>/dev/null
+    grep "source $ROOT/setup.sh" $HOME/$fn > /dev/null 2>/dev/null
     rc=$?
-
     if [ $rc -eq 0 ]; then
-        echo "already installed in $HOME/$fn, skipping this step"
+        echo "already have $ROOT/setup.sh in $HOME/$fn, skipping this step"
     else
-        echo "adding $ROOT/setup.sh to $HOME/$fn"
-        echo source $ROOT/setup.sh >> $HOME/$fn
-        echo "run 'history | $ROOT/juun.import' to import your current history"
-        echo
+        cat $HOME/$fn | grep juun | grep setup.sh > /dev/null 2>/dev/null
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            echo "WARN: found different vesion in $HOME/$fn, please remove it and add 'source $ROOT/setup.sh'"
+        else
+            echo "adding $ROOT/setup.sh to $HOME/$fn"
+            echo source $ROOT/setup.sh >> $HOME/$fn
+            echo "run 'history | $ROOT/juun.import' to import your current history"
+        fi
     fi
 
     echo
