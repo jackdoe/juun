@@ -22,7 +22,7 @@ which_shell() {
 
 do_install() {
     fn=$1
-    grep "$ROOT/setup.sh" $HOME/$fn > /dev/null 2>/dev/null
+    cat $HOME/$fn | grep juun | grep "setup.sh" > /dev/null 2>/dev/null
     rc=$?
 
     if [ $rc -eq 0 ]; then
