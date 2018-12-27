@@ -1,16 +1,11 @@
-ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-
+GOARCH ?= "amd64"
+GOOS ?= "darwin"
 all:
 	mkdir -p dist
 	cp -p sh/*.sh dist/
-	go build -ldflags="-s -w" -o dist/juun.search control/search.go
-	go build -ldflags="-s -w" -o dist/juun.import control/import.go
-	go build -ldflags="-s -w" -o dist/juun.service service/*.go
-	go build -ldflags="-s -w" -o dist/juun.updown control/updown.go
-
-install:
-	echo source $(ROOT_DIR)/dist/setup.sh >> $(HOME)/.bash_profile
-	echo source $(ROOT_DIR)/dist/setup.sh >> $(HOME)/.zshrc
-
+	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -ldflags="-s -w" -o dist/juun.search control/search.go
+	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -ldflags="-s -w" -o dist/juun.import control/import.go
+	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -ldflags="-s -w" -o dist/juun.service service/*.go
+	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -ldflags="-s -w" -o dist/juun.updown control/updown.go
 clean:
-	rm dist/juun.*
+	rm dist/juun.* dist/*.sh

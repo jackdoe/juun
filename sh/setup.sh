@@ -83,13 +83,14 @@ if [[ -n "$BASH" ]]; then
             READLINE_LINE="$res"
             READLINE_POINT="${#READLINE_LINE}"
         }
-
-        bind -x '"\e[A": juun_up'
-        bind -x '"\e[B": juun_down'
-        bind -x '"\C-p": juun_up'
-        bind -x '"\C-n": juun_down'
-        bind -x '"\C-r": "juun_search_start"'
-
+        
+        if [ "x$JUUN_BIND_BASH" = "x" ]; then
+            bind -x '"\e[A": juun_up'
+            bind -x '"\e[B": juun_down'
+            bind -x '"\C-p": juun_up'
+            bind -x '"\C-n": juun_down'
+            bind -x '"\C-r": "juun_search_start"'
+        fi
         juun_start
     fi
 elif [[ -n "$ZSH_VERSION" ]]; then

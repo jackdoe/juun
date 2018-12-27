@@ -311,7 +311,11 @@ type Bandit struct {
 }
 
 func NewBandit(modelPath string) *Bandit {
-	return &Bandit{vowpal: NewVowpalInstance(modelPath), predictions: map[int]*prediction{}}
+	vowpal := NewVowpalInstance(modelPath)
+	if vowpal == nil {
+		return nil
+	}
+	return &Bandit{vowpal: vowpal, predictions: map[int]*prediction{}}
 }
 
 type Item struct {

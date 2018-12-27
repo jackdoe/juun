@@ -166,7 +166,6 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	save := func() {
-
 		d1, err := json.Marshal(history)
 		tmp := fmt.Sprintf("%s.tmp", histfile)
 		log.Printf("saving %s", tmp)
