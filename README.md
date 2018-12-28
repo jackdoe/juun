@@ -69,7 +69,7 @@ logs are in $HOME/.juun.log and pid is $HOME/.juun.pid
 if you want to import your current history run:
 
 ```
-$ history | dist/juun.import
+$ HISTTIMEFORMAT= history | dist/juun.import
 ```
 
 this will add each of your history lines to juun
