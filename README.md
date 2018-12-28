@@ -69,7 +69,7 @@ logs are in $HOME/.juun.log and pid is $HOME/.juun.pid
 if you want to import your current history run:
 
 ```
-$ HISTTIMEFORMAT= history | dist/juun.import
+$ HISTTIMEFORMAT= history | ~/.juun.dist/juun.import
 ```
 
 this will add each of your history lines to juun
@@ -132,6 +132,7 @@ example log line in `~/.juun.log`
 ## known issues
 
 * in some bash versions up/down give `bash_execute_unix_command: cannot find keymap for command`, in the same time \C-p and \C-p work, to not hook to up/down use `BASH_UPDOWN_BROKEN=1 source setup.sh` in your bash_profile
+
 
 ## credit
 
