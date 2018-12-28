@@ -43,6 +43,10 @@ if [[ -n "$BASH" ]]; then
     else
         source $ROOT/preexec.sh
 
+        preexec () {
+            juun_work add "$1"
+        }
+        
         precmd () {
             juun_work end end
         }
