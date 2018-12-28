@@ -127,7 +127,6 @@ elif [[ -n "$ZSH_VERSION" ]]; then
         CURSOR=${#BUFFER}
     }
 
-    
     juun_up() {
         BUFFER=$(juun_work up $BUFFER)
         CURSOR=${#BUFFER}
