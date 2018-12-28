@@ -72,6 +72,7 @@ if [ "bash" = "$who" ]; then
     }
     ROOT=$(_realpath $(dirname $BASH_SOURCE))
 
+    # FIXME: when shoud bashrc be used?
     do_install ".bash_profile"
     post_install
 elif [ "zsh" = "$who" ]; then

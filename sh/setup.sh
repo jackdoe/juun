@@ -85,8 +85,10 @@ if [[ -n "$BASH" ]]; then
         }
         
         if [ "x$JUUN_DONT_BIND_BASH" = "x" ]; then
-            bind -x '"\e[A": juun_up'
-            bind -x '"\e[B": juun_down'
+            if [ "x$BASH_UPDOWN_BROKEN" = "x" ]; then
+                bind -x '"\e[A": juun_up'
+                bind -x '"\e[B": juun_down'
+            fi
             bind -x '"\C-p": juun_up'
             bind -x '"\C-n": juun_down'
             bind -x '"\C-r": "juun_search_start"'

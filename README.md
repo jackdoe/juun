@@ -129,6 +129,9 @@ example log line in `~/.juun.log`
 2018/12/25 16:54:26 received 0.624512 0.584649 0.664374
 ```
 
+## known issues
+
+* in some bash versions up/down give `bash_execute_unix_command: cannot find keymap for command`, in the same time \C-p and \C-p work, to not hook to up/down use `BASH_UPDOWN_BROKEN=1 source setup.sh` in your bash_profile
 
 ## credit
 
