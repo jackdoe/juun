@@ -132,7 +132,7 @@ example log line in `~/.juun.log`
 ## known issues
 
 * in some bash versions up/down give `bash_execute_unix_command: cannot find keymap for command`, in the same time \C-p and \C-p work, to not hook to up/down use `BASH_UPDOWN_BROKEN=1 source setup.sh` in your bash_profile
-
+* the is a bug with bash that sometimes the terminal does not get reset properly after the preexec hook; in general bash is super hacky to do this kind of things, so if you can use zsh and you will get much better experience, probably I will remove the bash support if I cant fix this
 
 ## credit
 
