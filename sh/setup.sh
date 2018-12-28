@@ -43,10 +43,6 @@ if [[ -n "$BASH" ]]; then
     else
         source $ROOT/preexec.sh
 
-        preexec () {
-            juun_work add "$1"
-        }
-
         precmd () {
             juun_work end end
         }
@@ -73,13 +69,13 @@ if [[ -n "$BASH" ]]; then
         }
 
         juun_down() {
-            res=$(juun_work down $READLINE_LINE)
+            res=$(juun_work down "$READLINE_LINE")
             READLINE_LINE="$res"
             READLINE_POINT="${#READLINE_LINE}"
         }
 
         juun_up() {
-            res=$(juun_work up $READLINE_LINE)
+            res=$(juun_work up "$READLINE_LINE")
             READLINE_LINE="$res"
             READLINE_POINT="${#READLINE_LINE}"
         }
@@ -100,7 +96,7 @@ elif [[ -n "$ZSH_VERSION" ]]; then
 
     trap 'juun_cleanup' EXIT
 
-    preexec () {
+    zshaddhistory () {
         juun_work add "$1"
     }
 
@@ -127,11 +123,11 @@ elif [[ -n "$ZSH_VERSION" ]]; then
     }
 
     juun_down() {
-        BUFFER=$(juun_work down $BUFFER)
+        BUFFER=$(juun_work down down)
         CURSOR=${#BUFFER}
     }
 
-
+    
     juun_up() {
         BUFFER=$(juun_work up $BUFFER)
         CURSOR=${#BUFFER}

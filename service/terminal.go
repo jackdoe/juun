@@ -15,6 +15,15 @@ type Terminal struct {
 	CurrentBufferBeforeMove string
 }
 
+func NewTerminal(currentHistoryId int) *Terminal {
+	return &Terminal{
+		Commands:        []int{},
+		Cursor:          0,
+		GlobalIdOnStart: currentHistoryId,
+		CommandsSet:     map[int]bool{},
+	}
+}
+
 func (t *Terminal) add(id int) {
 	//	defer t.log("ADD")
 	t.Commands = append(t.Commands, id)
