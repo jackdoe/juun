@@ -250,8 +250,6 @@ func NewVowpalInstance(modelPath string) *vowpal {
 		args = append(args, "-i", modelPath)
 	} else {
 		args = append(args,
-			"--hash_seed",
-			"0",
 			"--link",
 			"logistic",
 			"-b",
