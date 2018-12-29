@@ -78,6 +78,11 @@ func oneLine(history *History, c net.Conn) {
 	c.Close()
 }
 
+func prettyPrint(i interface{}) string {
+	s, _ := json.MarshalIndent(i, "", "\t")
+	return string(s)
+}
+
 func listen(history *History, ln net.Listener) {
 	for {
 		fd, err := ln.Accept()
@@ -120,6 +125,7 @@ func main() {
 	histfile := path.Join(home, ".juun.json")
 	socketPath := path.Join(home, ".juun.sock")
 	pidFile := path.Join(home, ".juun.pid")
+	configFile := path.Join(home, ".juun.config")
 	modelFile := path.Join(home, ".juun.vw")
 	if isRunning(pidFile) {
 		os.Exit(0)
@@ -155,7 +161,27 @@ func main() {
 
 	history.selfReindex()
 
-	vw := NewBandit(modelFile) // XXX: can be nil if vw is not found
+	config := NewConfig()
+	dat, err = ioutil.ReadFile(configFile)
+	if err == nil {
+		err = json.Unmarshal(dat, config)
+		if err != nil {
+			config = NewConfig()
+		}
+		log.Printf("config[%s]: %s", configFile, prettyPrint(config))
+	} else {
+		log.Printf("missing config file %s, using default: %s", configFile, prettyPrint(config))
+	}
+
+	if config.AutoSaveInteralSeconds < 30 {
+		log.Printf("autosave interval is too short, limiting it to 30 seconds")
+		config.AutoSaveInteralSeconds = 30
+	}
+
+	var vw *Bandit
+	if config.EnableVowpalWabbit {
+		vw = NewBandit(modelFile) // XXX: can be nil if vw is not found
+	}
 	history.vw = vw
 	syscall.Unlink(socketPath)
 	sock, err := net.Listen("unix", socketPath)
@@ -166,18 +192,23 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	save := func() {
+		history.lock.Lock()
 		d1, err := json.Marshal(history)
-		tmp := fmt.Sprintf("%s.tmp", histfile)
-		log.Printf("saving %s", tmp)
+		history.lock.Unlock()
+
+		tmp := fmt.Sprintf("%s.%s.tmp", histfile, randSeq(10))
 		if err == nil {
+			log.Printf("saving %s", tmp)
 			err := ioutil.WriteFile(tmp, d1, 0600)
 			if err != nil {
 				log.Printf("%s", err.Error())
+				os.Remove(tmp)
 			} else {
 				log.Printf("renaming %s to %s", tmp, histfile)
 				err := os.Rename(tmp, histfile)
 				if err != nil {
 					log.Printf("%s", err.Error())
+					os.Remove(tmp)
 				}
 			}
 		} else {
@@ -190,13 +221,16 @@ func main() {
 
 	cleanup := func() {
 		log.Printf("closing")
+		sock.Close()
+
+		history.limit(config.HistoryLimit)
 		save()
 		os.Chmod(modelFile, 0600)
-		sock.Close()
 		if vw != nil {
 			vw.Shutdown()
 		}
 		cntxt.Release()
+
 		os.Exit(0)
 	}
 
@@ -205,12 +239,14 @@ func main() {
 		cleanup()
 	}()
 
-	go func() {
-		for {
-			save()
-			time.Sleep(300 * time.Second)
-		}
-	}()
+	if config.AutoSaveInteralSeconds > 0 {
+		go func() {
+			for {
+				save()
+				time.Sleep(time.Duration(config.AutoSaveInteralSeconds) * time.Second)
+			}
+		}()
+	}
 
 	listen(history, sock)
 	cleanup()

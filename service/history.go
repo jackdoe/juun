@@ -335,7 +335,6 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 	terminal, hasTerminal := h.perTerminal[pid]
 
 	now := time.Now().Unix()
-	maxScore := float32(0)
 	for query.Next() != NO_MORE {
 		id := query.GetDocId()
 		line := h.Lines[id]
@@ -355,10 +354,6 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 		}
 
 		total := tfidf + timeScore + terminalScore + countScore
-		if total > maxScore {
-			log.Printf("total: %f, tfidf: %f timeScore: %f terminalScore:%f countScore:%f, age: %ds - %s", total, tfidf, timeScore, terminalScore, countScore, now-ts, line.Line)
-			maxScore = total
-		}
 		score = append(score, scored{id: line.Id, score: total, tfidf: tfidf, timeScore: timeScore, terminalScore: terminalScore, countScore: countScore})
 	}
 	sort.Sort(ByScore(score))
@@ -386,6 +381,7 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 					NewFeature(fmt.Sprintf("terminalScore=%d", int(s.terminalScore)), 0)))
 
 			vwi = append(vwi, NewItem(line.Id, f.ToVW()))
+			log.Printf("before VW: tfidf: %f timeScore: %f terminalScore:%f countScore:%f line:%s", s.tfidf, s.timeScore, s.terminalScore, s.countScore, line.Line)
 		}
 
 		prediction := h.vw.Predict(1, vwi...)
@@ -394,12 +390,14 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 
 	// pick the first one
 	if len(score) > 0 {
-		return h.Lines[score[0].id].Line
+		s := score[0]
+		line := h.Lines[s.id]
+		log.Printf("result[%s]: tfidf: %f timeScore: %f terminalScore:%f countScore:%f line:%s", text, s.tfidf, s.timeScore, s.terminalScore, s.countScore, line.Line)
+		return line.Line
 	}
 
 	return ""
 }
-
 func (h *History) like(line *HistoryLine, env map[string]string) {
 	if h.vw == nil {
 		return
@@ -409,5 +407,11 @@ func (h *History) like(line *HistoryLine, env map[string]string) {
 	f := line.featurize()
 	f.Add(ctx)
 	f.AddNamespaces(NewNamespace("i_score", NewFeature(fmt.Sprintf("terminalScore=%d", int(scoreOnTerminal)), 0)))
-	h.vw.SendReceive(fmt.Sprintf("1 %s", f.ToVW()))
+	h.vw.SendReceive(fmt.Sprintf("1 10 %s", f.ToVW())) // add weight of 10 on the clicked one
+}
+
+func (h *History) limit(limit int) {
+	if limit > 0 && len(h.Lines) > limit {
+		h.Lines = h.Lines[len(h.Lines)-limit:]
+	}
 }

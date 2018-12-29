@@ -13,6 +13,36 @@ func TestTime(t *testing.T) {
 	}
 }
 
+func TestLimit(t *testing.T) {
+	h := NewHistory()
+	h.limit(2)
+	h = NewHistory()
+
+	h.add("ps 1", 1, nil)
+	h.limit(1)
+	if len(h.Lines) != 1 {
+		t.Fatalf("%d != 1", len(h.Lines))
+	}
+
+	h.add("ps 1", 1, nil)
+	h.add("ps 2", 1, nil)
+	h.add("ps 3", 1, nil)
+	if len(h.Lines) != 3 {
+		t.Fatalf("%d != 2", len(h.Lines))
+	}
+
+	h.limit(2)
+	if len(h.Lines) != 2 {
+		t.Fatalf("%d != 2", len(h.Lines))
+	}
+
+	h.limit(2)
+	if len(h.Lines) != 2 {
+		t.Fatalf("%d != 2", len(h.Lines))
+	}
+
+}
+
 func TestRemove(t *testing.T) {
 	h := NewHistory()
 	h.add("ps 1", 1, nil)
