@@ -72,8 +72,12 @@ if [ "bash" = "$who" ]; then
     }
     ROOT=$(_realpath $(dirname $BASH_SOURCE))
 
-    # FIXME: when shoud bashrc be used?
-    do_install ".bash_profile"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        do_install ".bash_profile"
+    else
+        do_install ".bashrc"
+    fi
+
     post_install
 elif [ "zsh" = "$who" ]; then
     ROOT=$(dirname $0:A)
