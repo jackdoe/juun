@@ -43,13 +43,16 @@ if [[ -n "$BASH" ]]; then
     else
         source $ROOT/preexec.sh
 
-        preexec () {
+        juun_preexec () {
             juun_work add "$1"
         }
         
-        precmd () {
+        juun_precmd () {
             juun_work end end
         }
+
+        preexec_functions+=(juun_preexec)
+        precmd_functions+=(juun_precmd)
 
         trap 'juun_cleanup' EXIT
 
@@ -93,6 +96,7 @@ if [[ -n "$BASH" ]]; then
             bind -x '"\C-n": juun_down'
             bind -x '"\C-r": "juun_search_start"'
         fi
+
         juun_start
     fi
 elif [[ -n "$ZSH_VERSION" ]]; then
