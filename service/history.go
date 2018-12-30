@@ -4,7 +4,7 @@ import (
 	"fmt"
 	. "github.com/jackdoe/juun/common"
 	. "github.com/jackdoe/juun/vw"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"math"
 	"regexp"
 	"sort"
@@ -90,7 +90,7 @@ func NewHistory() *History {
 }
 
 func (h *History) selfReindex() {
-	log.Printf("starting reindexing")
+	log.Infof("starting reindexing")
 	h.index = map[string]int{}
 	h.inverted = &InvertedIndex{
 		Postings:  map[string][]uint64{},
@@ -100,7 +100,7 @@ func (h *History) selfReindex() {
 		h.addLineToInvertedIndex(v)
 		h.index[v.Line] = id
 	}
-	log.Printf("reindexing done, %d items", len(h.index))
+	log.Infof("reindexing done, %d items", len(h.index))
 
 }
 
@@ -381,7 +381,7 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 					NewFeature(fmt.Sprintf("terminalScore=%d", int(s.terminalScore)), 0)))
 
 			vwi = append(vwi, NewItem(line.Id, f.ToVW()))
-			log.Printf("before VW: tfidf: %f timeScore: %f terminalScore:%f countScore:%f line:%s", s.tfidf, s.timeScore, s.terminalScore, s.countScore, line.Line)
+			log.Debugf("before VW: tfidf: %f timeScore: %f terminalScore:%f countScore:%f line:%s", s.tfidf, s.timeScore, s.terminalScore, s.countScore, line.Line)
 		}
 
 		prediction := h.vw.Predict(1, vwi...)
@@ -392,7 +392,7 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 	if len(score) > 0 {
 		s := score[0]
 		line := h.Lines[s.id]
-		log.Printf("result[%s]: tfidf: %f timeScore: %f terminalScore:%f countScore:%f line:%s", text, s.tfidf, s.timeScore, s.terminalScore, s.countScore, line.Line)
+		log.Debugf("result[%s]: tfidf: %f timeScore: %f terminalScore:%f countScore:%f line:%s", text, s.tfidf, s.timeScore, s.terminalScore, s.countScore, line.Line)
 		return line.Line
 	}
 

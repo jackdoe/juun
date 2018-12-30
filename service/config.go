@@ -4,6 +4,7 @@ type Config struct {
 	HistoryLimit           int
 	AutoSaveInteralSeconds uint
 	EnableVowpalWabbit     bool
+	LogLevel               string
 }
 
 func NewConfig() *Config {
@@ -11,5 +12,6 @@ func NewConfig() *Config {
 		HistoryLimit:           0,
 		AutoSaveInteralSeconds: 300,
 		EnableVowpalWabbit:     true,
+		LogLevel:               "info",
 	}
 }

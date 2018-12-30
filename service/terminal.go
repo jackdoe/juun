@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 type Terminal struct {
@@ -78,5 +78,5 @@ func (t *Terminal) isAtEnd() bool {
 }
 
 func (t *Terminal) log(p string) {
-	log.Printf("%s: cursor:%d/%d @ %d, commands: %#v, buf: %s", p, t.Cursor, len(t.Commands)-1, t.GlobalIdOnStart, t.Commands, t.CurrentBufferBeforeMove)
+	log.Debugf("%s: cursor:%d/%d @ %d, commands: %#v, buf: %s", p, t.Cursor, len(t.Commands)-1, t.GlobalIdOnStart, t.Commands, t.CurrentBufferBeforeMove)
 }

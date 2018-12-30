@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -31,12 +31,12 @@ type vowpal struct {
 
 func (v *vowpal) Shutdown() {
 	v.conn.Close()
-	log.Printf("removing %s", v.fn)
+	log.Infof("removing %s", v.fn)
 
 	cmd := v.cmd
 	err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	if err != nil {
-		log.Printf("kill failed: %v\n", err)
+		log.Infof("kill failed: %v\n", err)
 	}
 	os.Remove(v.fn)
 }
@@ -159,20 +159,20 @@ func (v *vowpal) SendReceive(line string) string {
 	v.rw.Write([]byte("\n"))
 	v.rw.Flush()
 
-	log.Printf("sending %s", strings.Replace(line, "\n", "", -1))
+	log.Debugf("sending %s", strings.Replace(line, "\n", "", -1))
 
 	message, err := ReadWithTimeout(v.rw, 1*time.Second)
 	if err != nil {
-		log.Printf("error reading from vw: %s", err.Error())
+		log.Warnf("error reading from vw: %s", err.Error())
 		return "0 0 0"
 	}
-	log.Printf("received %s", message)
+	log.Debugf("received %s", message)
 
 	return message
 }
 
 func run(c string, args ...string) *exec.Cmd {
-	log.Printf("running %s %s", c, strings.Join(args, " "))
+	log.Infof("running %s %s", c, strings.Join(args, " "))
 	cmd := exec.Command(c, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
@@ -197,10 +197,10 @@ func exists(f string) bool {
 func waitForFile(f string) {
 	for {
 		if exists(f) {
-			log.Printf("found %s", f)
+			log.Infof("vw: found %s", f)
 			return
 		}
-		log.Printf("waiting for %s", f)
+		log.Infof("vw: waiting for %s", f)
 		time.Sleep(1 * time.Second)
 	}
 }
@@ -227,7 +227,7 @@ func NewVowpalInstance(modelPath string) *vowpal {
 
 	fn := path.Join(os.TempDir(), fmt.Sprintf("juun.%s.vw.port", RandomString(16)))
 
-	log.Printf("starting vw with port file %s", fn)
+	log.Infof("starting vw with port file %s", fn)
 	args := []string{
 		"--quiet",
 		"--port",
@@ -281,12 +281,14 @@ func NewVowpalInstance(modelPath string) *vowpal {
 
 	var conn net.Conn
 	var err error
+
+	time.Sleep(1 * time.Second)
 	for {
 		conn, err = net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err == nil {
 			break
 		}
-		log.Printf("trying to connect to %d, err: %s", port, err.Error())
+		log.Warnf("trying to connect to %d, err: %s", port, err.Error())
 		time.Sleep(1 * time.Second)
 	}
 
@@ -298,7 +300,7 @@ func (v *vowpal) getVowpalScore(features string) float32 {
 	splitted := strings.Split(s, " ")
 	f, err := strconv.ParseFloat(splitted[2], 32)
 	if err != nil {
-		log.Printf("err: %s", err)
+		log.Warnf("err: %s", err)
 	}
 	return float32(f)
 }

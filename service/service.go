@@ -7,9 +7,9 @@ import (
 	. "github.com/jackdoe/juun/common"
 	. "github.com/jackdoe/juun/vw"
 	"github.com/sevlyar/go-daemon"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -33,20 +33,20 @@ func oneLine(history *History, c net.Conn) {
 	data := make([]byte, dataLen)
 	_, err = io.ReadFull(c, data)
 	if err != nil {
-		log.Printf("err: %s", err.Error())
+		log.Warnf("err: %s", err.Error())
 		c.Close()
 		return
 	}
 	ctrl := &Control{}
 	err = json.Unmarshal(data, ctrl)
 	if err != nil {
-		log.Printf("err: %s", err.Error())
+		log.Warnf("err: %s", err.Error())
 		c.Close()
 		return
 	}
 
 	out := ""
-	log.Printf("datalen: %d %#v", dataLen, ctrl)
+	log.Infof("datalen: %d %#v", dataLen, ctrl)
 	switch ctrl.Command {
 	case "add":
 		if len(ctrl.Payload) > 0 {
@@ -87,7 +87,7 @@ func listen(history *History, ln net.Listener) {
 	for {
 		fd, err := ln.Accept()
 		if err != nil {
-			log.Print("accept error:", err)
+			log.Warnf("accept error:", err)
 			break
 		}
 
@@ -120,7 +120,6 @@ func getHome() string {
 }
 
 func main() {
-	history := NewHistory()
 	home := GetHome()
 	histfile := path.Join(home, ".juun.json")
 	socketPath := path.Join(home, ".juun.sock")
@@ -130,6 +129,8 @@ func main() {
 	if isRunning(pidFile) {
 		os.Exit(0)
 	}
+
+	history := NewHistory()
 
 	cntxt := &daemon.Context{
 		PidFileName: pidFile,
@@ -147,16 +148,17 @@ func main() {
 	if d != nil {
 		return
 	}
-	log.Printf("loading %s, listening to: %s, model: %s", histfile, socketPath, modelFile)
+	log.Infof("---------------------")
+	log.Infof("loading %s, listening to: %s, model: %s", histfile, socketPath, modelFile)
 	dat, err := ioutil.ReadFile(histfile)
 	if err == nil {
 		err = json.Unmarshal(dat, history)
 		if err != nil {
-			log.Printf("err: %s", err.Error())
+			log.Warnf("err: %s", err.Error())
 			history = NewHistory()
 		}
 	} else {
-		log.Printf("err: %s", err.Error())
+		log.Warnf("err: %s", err.Error())
 	}
 
 	history.selfReindex()
@@ -168,15 +170,22 @@ func main() {
 		if err != nil {
 			config = NewConfig()
 		}
-		log.Printf("config[%s]: %s", configFile, prettyPrint(config))
+		log.Infof("config[%s]: %s", configFile, prettyPrint(config))
 	} else {
-		log.Printf("missing config file %s, using default: %s", configFile, prettyPrint(config))
+		log.Warnf("missing config file %s, using default: %s", configFile, prettyPrint(config))
 	}
 
 	if config.AutoSaveInteralSeconds < 30 {
-		log.Printf("autosave interval is too short, limiting it to 30 seconds")
+		log.Warnf("autosave interval is too short, limiting it to 30 seconds")
 		config.AutoSaveInteralSeconds = 30
 	}
+	level, err := log.ParseLevel(config.LogLevel)
+	if err != nil {
+		log.Warnf("failed to parse level %s: %s", config.LogLevel, err)
+	} else {
+		log.SetLevel(level)
+	}
+	log.SetReportCaller(true)
 
 	var vw *Bandit
 	if config.EnableVowpalWabbit {
@@ -198,21 +207,21 @@ func main() {
 
 		tmp := fmt.Sprintf("%s.%s.tmp", histfile, randSeq(10))
 		if err == nil {
-			log.Printf("saving %s", tmp)
+			log.Infof("saving %s", tmp)
 			err := ioutil.WriteFile(tmp, d1, 0600)
 			if err != nil {
-				log.Printf("%s", err.Error())
+				log.Warnf("%s", err.Error())
 				os.Remove(tmp)
 			} else {
-				log.Printf("renaming %s to %s", tmp, histfile)
+				log.Infof("renaming %s to %s", tmp, histfile)
 				err := os.Rename(tmp, histfile)
 				if err != nil {
-					log.Printf("%s", err.Error())
+					log.Warnf("%s", err.Error())
 					os.Remove(tmp)
 				}
 			}
 		} else {
-			log.Printf("%s", err.Error())
+			log.Warnf("%s", err.Error())
 		}
 		if vw != nil {
 			vw.Save()
@@ -220,7 +229,7 @@ func main() {
 	}
 
 	cleanup := func() {
-		log.Printf("closing")
+		log.Infof("closing")
 		sock.Close()
 
 		history.limit(config.HistoryLimit)
