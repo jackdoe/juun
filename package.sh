@@ -9,7 +9,8 @@ for os in linux freebsd darwin; do
         pushd ../../juun-bin-dist/
 
         rm juun-latest-$os-$arch.tar.gz
-        ln -s juun-v$version-$os-$arch.tar.gz juun-latest-$os-$arch.tar.gz
+        cp juun-v$version-$os-$arch.tar.gz juun-latest-$os-$arch.tar.gz
+        shasum -a 256 juun-latest-$os-$arch.tar.gz
         popd
         popd
     done
