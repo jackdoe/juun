@@ -72,7 +72,7 @@ type History struct {
 	Lines       []*HistoryLine
 	index       map[string]int
 	inverted    *InvertedIndex
-	perTerminal map[int]*Terminal
+	PerTerminal map[int]*Terminal
 	lock        sync.Mutex
 	vw          *Bandit
 }
@@ -81,7 +81,7 @@ func NewHistory() *History {
 	return &History{
 		Lines:       []*HistoryLine{}, // ordered list of commands
 		index:       map[string]int{}, // XXX: dont store the strings twice
-		perTerminal: map[int]*Terminal{},
+		PerTerminal: map[int]*Terminal{},
 		inverted: &InvertedIndex{
 			Postings:  map[string][]uint64{},
 			TotalDocs: 0,
@@ -118,55 +118,7 @@ func (h *History) deletePID(pid int) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	delete(h.perTerminal, pid)
-}
-
-func (h *History) removeLine(l string) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-
-	id := -1
-	for _, line := range h.Lines {
-		if line.Line == l {
-			id = line.Id
-			break
-		}
-	}
-
-	if id == -1 {
-		return
-	}
-
-	// all ids after that have to be decremented to match the removal
-	for i := id + 1; i < len(h.Lines); i++ {
-		h.Lines[i].Id--
-	}
-
-	h.Lines = append(h.Lines[:id], h.Lines[id+1:]...)
-
-	h.selfReindex()
-
-	// remove it from the terminal's history and also fixup
-	for _, terminal := range h.perTerminal {
-		foundIndex := -1
-		for idx, lid := range terminal.Commands {
-			if lid == id {
-				foundIndex = idx
-			}
-		}
-
-		if foundIndex == -1 {
-			continue
-		}
-
-		for i := foundIndex + 1; i < len(terminal.Commands); i++ {
-			terminal.Commands[i]--
-		}
-
-		terminal.Commands = append(terminal.Commands[:foundIndex], terminal.Commands[foundIndex+1:]...)
-
-		terminal.end()
-	}
+	delete(h.PerTerminal, pid)
 }
 
 var SPLIT_REGEXP = regexp.MustCompile("[~&@%/_,\\.-]+")
@@ -239,7 +191,7 @@ func (h *History) gotoend(pid int) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	t, ok := h.perTerminal[pid]
+	t, ok := h.PerTerminal[pid]
 	if !ok {
 		return
 	}
@@ -254,11 +206,11 @@ func (h *History) down(pid int, buf string) string {
 }
 
 func (h *History) getTerminal(pid int) *Terminal {
-	t, ok := h.perTerminal[pid]
+	t, ok := h.PerTerminal[pid]
 	if !ok {
 		id := len(h.Lines)
 		t = NewTerminal(id)
-		h.perTerminal[pid] = t
+		h.PerTerminal[pid] = t
 
 	}
 	return t
@@ -332,7 +284,7 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 
 	query := NewBoolAndQuery(terms)
 	score := []scored{}
-	terminal, hasTerminal := h.perTerminal[pid]
+	terminal, hasTerminal := h.PerTerminal[pid]
 
 	now := time.Now().Unix()
 	for query.Next() != NO_MORE {
@@ -408,10 +360,4 @@ func (h *History) like(line *HistoryLine, env map[string]string) {
 	f.Add(ctx)
 	f.AddNamespaces(NewNamespace("i_score", NewFeature(fmt.Sprintf("terminalScore=%d", int(scoreOnTerminal)), 0)))
 	h.vw.SendReceive(fmt.Sprintf("1 10 %s", f.ToVW())) // add weight of 10 on the clicked one
-}
-
-func (h *History) limit(limit int) {
-	if limit > 0 && len(h.Lines) > limit {
-		h.Lines = h.Lines[len(h.Lines)-limit:]
-	}
 }

@@ -6,7 +6,7 @@ import (
 
 type Terminal struct {
 	Commands    []int
-	CommandsSet map[int]bool
+	CommandsSet map[int]int
 
 	Cursor int
 
@@ -20,14 +20,15 @@ func NewTerminal(currentHistoryId int) *Terminal {
 		Commands:        []int{},
 		Cursor:          0,
 		GlobalIdOnStart: currentHistoryId,
-		CommandsSet:     map[int]bool{},
+		CommandsSet:     map[int]int{},
 	}
 }
 
 func (t *Terminal) add(id int) {
 	//	defer t.log("ADD")
+	idx := len(t.Commands)
 	t.Commands = append(t.Commands, id)
-	t.CommandsSet[id] = true
+	t.CommandsSet[id] = idx
 	t.end()
 }
 

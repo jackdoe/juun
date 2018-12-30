@@ -59,9 +59,6 @@ func oneLine(history *History, c net.Conn) {
 	case "delete":
 		history.deletePID(ctrl.Pid)
 
-	case "purge":
-		history.removeLine(ctrl.Payload)
-
 	case "search":
 		line := strings.Replace(ctrl.Payload, "\n", "", -1)
 		if len(line) > 0 {
@@ -87,7 +84,7 @@ func listen(history *History, ln net.Listener) {
 	for {
 		fd, err := ln.Accept()
 		if err != nil {
-			log.Warnf("accept error:", err)
+			log.Warnf("accept error: %s", err.Error())
 			break
 		}
 
@@ -206,18 +203,17 @@ func main() {
 		history.lock.Unlock()
 
 		tmp := fmt.Sprintf("%s.%s.tmp", histfile, randSeq(10))
+		defer os.Remove(tmp)
 		if err == nil {
 			log.Infof("saving %s", tmp)
 			err := ioutil.WriteFile(tmp, d1, 0600)
 			if err != nil {
 				log.Warnf("%s", err.Error())
-				os.Remove(tmp)
 			} else {
 				log.Infof("renaming %s to %s", tmp, histfile)
 				err := os.Rename(tmp, histfile)
 				if err != nil {
 					log.Warnf("%s", err.Error())
-					os.Remove(tmp)
 				}
 			}
 		} else {
@@ -232,7 +228,6 @@ func main() {
 		log.Infof("closing")
 		sock.Close()
 
-		history.limit(config.HistoryLimit)
 		save()
 		os.Chmod(modelFile, 0600)
 		if vw != nil {
