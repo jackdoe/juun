@@ -48,8 +48,9 @@ func oneLine(history *History, c net.Conn) {
 	log.Infof("datalen: %d %#v", dataLen, ctrl)
 	switch ctrl.Command {
 	case "add":
-		if len(ctrl.Payload) > 0 {
-			history.add(ctrl.Payload, ctrl.Pid, ctrl.Env)
+		line := strings.Trim(ctrl.Payload, "\n")
+		if len(line) > 0 {
+			history.add(line, ctrl.Pid, ctrl.Env)
 		}
 
 	case "end":
