@@ -1,4 +1,4 @@
-# JUUN - zsh/bash4 history with some machine-learning
+# JUUN - zsh/bash4 history with some vowpal learning :)
 
 ![logo](https://github.com/jackdoe/juun/raw/master/logo-small.png)
 
