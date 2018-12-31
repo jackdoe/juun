@@ -10,6 +10,6 @@ func NewConfig() *Config {
 	return &Config{
 		AutoSaveInteralSeconds: 300,
 		EnableVowpalWabbit:     true,
-		LogLevel:               "info",
+		LogLevel:               "debug",
 	}
 }

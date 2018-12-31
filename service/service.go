@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	. "github.com/jackdoe/juun/common"
 	. "github.com/jackdoe/juun/vw"
 	"github.com/sevlyar/go-daemon"
@@ -201,24 +200,14 @@ func main() {
 		history.lock.Lock()
 		d1, err := json.Marshal(history)
 		history.lock.Unlock()
-
-		tmp := fmt.Sprintf("%s.%s.tmp", histfile, randSeq(10))
-		defer os.Remove(tmp)
 		if err == nil {
-			log.Infof("saving %s", tmp)
-			err := ioutil.WriteFile(tmp, d1, 0600)
-			if err != nil {
-				log.Warnf("%s", err.Error())
-			} else {
-				log.Infof("renaming %s to %s", tmp, histfile)
-				err := os.Rename(tmp, histfile)
-				if err != nil {
-					log.Warnf("%s", err.Error())
-				}
-			}
+			SafeSave(histfile, func(tmp string) error {
+				return ioutil.WriteFile(tmp, d1, 0600)
+			})
 		} else {
-			log.Warnf("%s", err.Error())
+			log.Warnf("error marshalling: %s", err.Error())
 		}
+
 		if vw != nil {
 			vw.Save()
 		}

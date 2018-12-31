@@ -118,12 +118,13 @@ func (fs *FeatureSet) ToVW() string {
 
 func (v *vowpal) Save() {
 	v.Lock()
+
 	v.rw.Write([]byte(fmt.Sprintf("save_%s", v.modelPath)))
 	v.rw.Write([]byte("\n"))
 	v.rw.Flush()
-	v.Unlock()
 
-	waitForFile(v.modelPath)
+	v.Unlock()
+	waitForFile(v.modelPath, 10)
 }
 
 func ReadWithTimeout(reader *bufio.ReadWriter, timeout time.Duration) (string, error) {
@@ -194,15 +195,16 @@ func exists(f string) bool {
 	return false
 
 }
-func waitForFile(f string) {
-	for {
+func waitForFile(f string, n int) bool {
+	for i := 0; i < n; i++ {
 		if exists(f) {
 			log.Infof("vw: found %s", f)
-			return
+			return true
 		}
-		log.Infof("vw: waiting for %s", f)
+		log.Infof("vw: waiting for %s, %d seconds so far", f, i)
 		time.Sleep(1 * time.Second)
 	}
+	return false
 }
 
 func readPortFile(fn string) int {
@@ -276,7 +278,12 @@ func NewVowpalInstance(modelPath string) *vowpal {
 		}
 	}
 
-	waitForFile(fn)
+	ok := waitForFile(fn, 10)
+	if !ok {
+		// couldnt start vowpal in 10 seconds, assume it will never start
+		return nil
+	}
+
 	port := readPortFile(fn)
 
 	var conn net.Conn

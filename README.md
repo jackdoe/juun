@@ -47,6 +47,7 @@ brew install juun
 requires bash4.+ or zsh, and golang
 
 ```
+go get github.com/sirupsen/logrus
 go get github.com/chzyer/readline
 go get github.com/sevlyar/go-daemon
 
