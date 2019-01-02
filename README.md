@@ -1,4 +1,4 @@
-# JUUN - zsh/bash4 history with some vowpal learning :)
+# JUUN - zsh history with some vowpal learning :)
 
 ![logo](https://github.com/jackdoe/juun/raw/master/logo-small.png)
 
@@ -44,7 +44,7 @@ brew install juun
 
 
 ### from source
-requires bash4.+ or zsh, and golang
+requires golang
 
 ```
 go get github.com/sirupsen/logrus
@@ -60,7 +60,7 @@ make install # this will add 'source juun/dist/setup.sh' to .bash_profile and .z
 ```
 
 this will hook up, down and ctrl+r to use juun for up/down history and search
-it also hooks to preexec() (bash: copied from https://github.com/rcaloras/bash-preexec) and every executed command goes into the service
+it also hooks to preexec()
 
 setup.sh will always try to start `juun.service` which listens on $HOME/.juun.sock
 logs are in $HOME/.juun.log and pid is $HOME/.juun.pid
@@ -130,9 +130,11 @@ example log line in `~/.juun.log`
 2018/12/25 16:54:26 received 0.624512 0.584649 0.664374
 ```
 
-## known issues
+## bash4
+* there is *some* support for bash4, and it kind of works, but there are some issues, so use on your own risk
 * bash's [preexec](https://github.com/rcaloras/bash-preexec) is super hacky, i strongly suggest to use juun with zsh; making juun is actually what made me switch from bash to zsh
 * in some bash versions up/down gives `bash_execute_unix_command: cannot find keymap for command`, in the same time \C-p and \C-p work, to not hook to up/down use `BASH_UPDOWN_BROKEN=1 source setup.sh` in your bashrc
+* sometimes the terminal gets broken and you have to 'reset'
 
 ## credit
 
