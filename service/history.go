@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
-	. "github.com/jackdoe/juun/common"
-	. "github.com/jackdoe/juun/vw"
-	log "github.com/sirupsen/logrus"
 	"math"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/jackdoe/juun/common"
+	. "github.com/jackdoe/juun/vw"
+	log "github.com/sirupsen/logrus"
 )
 
 type HistoryLine struct {
@@ -121,7 +122,7 @@ func (h *History) deletePID(pid int) {
 	delete(h.PerTerminal, pid)
 }
 
-var SPLIT_REGEXP = regexp.MustCompile("[~&@%/_,\\.-]+")
+var SPLIT_REGEXP = regexp.MustCompile(`[\W]+`)
 
 func tokenize(s string) []string {
 	trimmed := strings.Replace(s, "\n", " ", -1)
@@ -266,7 +267,7 @@ func (s ByScore) Less(i, j int) bool {
 	return s[j].score < s[i].score
 }
 
-const scoreOnTerminal = float32(100)
+const scoreOnTerminal = float32(10)
 
 func (h *History) search(text string, pid int, env map[string]string) string {
 	h.lock.Lock()
@@ -294,7 +295,7 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 		tfidf := query.Score()
 
 		ts := line.TimeStamp / 1000000000
-		timeScore := float32(-math.Log10(1 + float64(now-ts))) // -log(1+secondsDiff)
+		timeScore := float32(-math.Sqrt(1 + float64(now-ts))) // -log(1+secondsDiff)
 
 		countScore := float32(math.Log1p(float64(line.Count)))
 		terminalScore := float32(0)
@@ -312,7 +313,7 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 
 	if h.vw != nil {
 		// take the top 5 and sort them using vowpal wabbit's bootstrap
-		topN := 5
+		topN := 2
 		if topN > len(score) {
 			topN = len(score)
 		}
