@@ -1,9 +1,5 @@
 package main
 
-import (
-	log "github.com/sirupsen/logrus"
-)
-
 type Terminal struct {
 	Commands    []int
 	CommandsSet map[int]int
@@ -76,8 +72,4 @@ func (t *Terminal) end() {
 
 func (t *Terminal) isAtEnd() bool {
 	return t.Cursor == len(t.Commands)
-}
-
-func (t *Terminal) log(p string) {
-	log.Debugf("%s: cursor:%d/%d @ %d, commands: %#v, buf: %s", p, t.Cursor, len(t.Commands)-1, t.GlobalIdOnStart, t.Commands, t.CurrentBufferBeforeMove)
 }

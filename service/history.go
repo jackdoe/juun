@@ -3,116 +3,75 @@ package main
 import (
 	"fmt"
 	"math"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	iq "github.com/jackdoe/go-query"
+	"github.com/jackdoe/go-query/util/analyzer"
+	"github.com/jackdoe/go-query/util/index"
+	"github.com/jackdoe/go-query/util/tokenize"
 	. "github.com/jackdoe/juun/common"
 	. "github.com/jackdoe/juun/vw"
 	log "github.com/sirupsen/logrus"
 )
 
-type HistoryLine struct {
-	Line      string
-	TimeStamp int64
-	Count     uint32
-	Id        int
-}
-
-func (l *HistoryLine) featurize() *FeatureSet {
-	features := []*Feature{}
-	for _, s := range strings.Split(l.Line, " ") {
-		features = append(features, NewFeature(s, 0))
+func toDocuments(in []*HistoryLine) []index.Document {
+	out := make([]index.Document, len(in))
+	for i, d := range in {
+		out[i] = index.Document(d)
 	}
-	text := NewNamespace("i_text", features...)
-
-	count := NewNamespace("i_count", NewFeature("count", float32(math.Log(float64(1)+float64(l.Count)))))
-	t := timeToNamespace("i_time", time.Unix(l.TimeStamp/1000000000, 0))
-	id := NewNamespace("i_id", NewFeature(fmt.Sprintf("id=%d", l.Id), float32(0)))
-
-	return NewFeatureSet(id, text, count, t)
-}
-
-func timeToNamespace(ns string, now time.Time) *Namespace {
-	features := []*Feature{}
-	hr, _, _ := now.Clock()
-
-	features = append(features, NewFeature(fmt.Sprintf("year=%d", now.Year()), 0))
-	features = append(features, NewFeature(fmt.Sprintf("day=%d", now.Day()), 0))
-	features = append(features, NewFeature(fmt.Sprintf("month=%d", now.Month()), 0))
-	features = append(features, NewFeature(fmt.Sprintf("hour=%d", hr), 0))
-
-	return NewNamespace(ns, features...)
-}
-
-func userContext(query string, cwd string) *FeatureSet {
-	features := []*Feature{}
-	for _, s := range strings.Split(query, " ") {
-		if len(s) > 0 {
-			features = append(features, NewFeature(s, 0))
-		}
-	}
-	qns := NewNamespace("c_query", features...)
-
-	fs := NewFeatureSet(timeToNamespace("c_user_time", time.Now()), qns)
-	if cwd != "" {
-		splitted := strings.Split(cwd, "/")
-		features := []*Feature{}
-		if len(splitted) > 0 {
-			features = append(features, NewFeature(splitted[len(splitted)-1], 0))
-		}
-		features = append(features, NewFeature(cwd, 0))
-		fs.AddNamespaces(NewNamespace("c_cwd", features...))
-	}
-	return fs
+	return out
 }
 
 type History struct {
 	Lines       []*HistoryLine
-	index       map[string]int
-	inverted    *InvertedIndex
+	lookup      map[string]int
 	PerTerminal map[int]*Terminal
+	idx         *index.MemOnlyIndex
 	lock        sync.Mutex
 	vw          *Bandit
 }
 
 func NewHistory() *History {
+	indexTokenizer := []tokenize.Tokenizer{
+		tokenize.NewWhitespace(),
+		tokenize.NewLeftEdge(1), // left edge ngram indexing for prefix matches
+		tokenize.NewUnique(),
+	}
+
+	searchTokenizer := []tokenize.Tokenizer{
+		tokenize.NewWhitespace(),
+		tokenize.NewUnique(),
+	}
+
+	autocomplete := analyzer.NewAnalyzer(
+		index.DefaultNormalizer,
+		searchTokenizer,
+		indexTokenizer,
+	)
+	m := index.NewMemOnlyIndex(map[string]*analyzer.Analyzer{
+		"line": autocomplete,
+	})
+
 	return &History{
 		Lines:       []*HistoryLine{}, // ordered list of commands
-		index:       map[string]int{}, // XXX: dont store the strings twice
+		lookup:      map[string]int{},
+		idx:         m,
 		PerTerminal: map[int]*Terminal{},
-		inverted: &InvertedIndex{
-			Postings:  map[string][]uint64{},
-			TotalDocs: 0,
-		},
 	}
 }
 
 func (h *History) selfReindex() {
 	log.Infof("starting reindexing")
-	h.index = map[string]int{}
-	h.inverted = &InvertedIndex{
-		Postings:  map[string][]uint64{},
-		TotalDocs: 0,
-	}
+	h.lookup = map[string]int{}
 	for id, v := range h.Lines {
-		h.addLineToInvertedIndex(v)
-		h.index[v.Line] = id
+		h.lookup[v.Line] = id
 	}
-	log.Infof("reindexing done, %d items", len(h.index))
+	h.idx.Index(toDocuments(h.Lines)...)
+	log.Infof("reindexing done, %d items", len(h.Lines))
 
-}
-
-func (h *History) addLineToInvertedIndex(v *HistoryLine) {
-	for _, s := range tokenize(v.Line) {
-		h.inverted.add(v.Id, fmt.Sprintf("t_%s", s))
-		for _, e := range edge(s) {
-			h.inverted.add(v.Id, fmt.Sprintf("e_%s", e))
-		}
-	}
-	h.inverted.TotalDocs++
 }
 
 func (h *History) deletePID(pid int) {
@@ -122,36 +81,6 @@ func (h *History) deletePID(pid int) {
 	delete(h.PerTerminal, pid)
 }
 
-var SPLIT_REGEXP = regexp.MustCompile(`[\W]+`)
-
-func tokenize(s string) []string {
-	trimmed := strings.Replace(s, "\n", " ", -1)
-	seen := map[string]bool{}
-	splitted := strings.Split(trimmed, " ")
-	for _, sp := range splitted {
-		seen[sp] = true
-		for _, more := range SPLIT_REGEXP.Split(sp, -1) {
-			seen[more] = true
-		}
-	}
-	out := []string{}
-	for k, _ := range seen {
-		if len(k) > 0 {
-			out = append(out, k)
-		}
-	}
-
-	return out
-}
-
-func edge(text string) []string {
-	out := []string{}
-	for i := 0; i < len(text); i++ {
-		out = append(out, text[:i+1])
-	}
-	return out
-}
-
 func (h *History) add(line string, pid int, env map[string]string) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -159,7 +88,7 @@ func (h *History) add(line string, pid int, env map[string]string) {
 	t := h.getTerminal(pid)
 
 	now := time.Now().UnixNano()
-	id, ok := h.index[line]
+	id, ok := h.lookup[line]
 	if ok {
 		v := h.Lines[id]
 		v.Count++
@@ -175,8 +104,8 @@ func (h *History) add(line string, pid int, env map[string]string) {
 		}
 
 		h.Lines = append(h.Lines, v)
-		h.index[line] = v.Id
-		h.addLineToInvertedIndex(v)
+		h.lookup[line] = v.Id
+		h.idx.Index(index.Document(v))
 	}
 
 	if h.vw != nil {
@@ -230,7 +159,7 @@ func (h *History) move(goUP bool, pid int, buf string) string {
 	}
 
 	if goUP {
-		id, can = t.up()
+		id, _ = t.up()
 	} else {
 		id, can = t.down()
 
@@ -269,46 +198,39 @@ func (s ByScore) Less(i, j int) bool {
 
 const scoreOnTerminal = float32(10)
 
-func (h *History) search(text string, pid int, env map[string]string) string {
+func (h *History) search(text string, pid int, env map[string]string) []*HistoryLine {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
 	text = strings.Trim(text, " ")
 	if len(text) == 0 {
-		return ""
+		return []*HistoryLine{}
 	}
+	query := iq.And(h.idx.Terms("line", text)...)
 
-	terms := []Query{}
-	for _, s := range tokenize(text) {
-		terms = append(terms, h.inverted.term("e", s))
-	}
-
-	query := NewBoolAndQuery(terms)
 	score := []scored{}
 	terminal, hasTerminal := h.PerTerminal[pid]
-
 	now := time.Now().Unix()
-	for query.Next() != NO_MORE {
-		id := query.GetDocId()
-		line := h.Lines[id]
 
-		tfidf := query.Score()
-
+	h.idx.Foreach(query, func(did int32, tfidf float32, doc index.Document) {
+		line := doc.(*HistoryLine)
 		ts := line.TimeStamp / 1000000000
 		timeScore := float32(-math.Sqrt(1 + float64(now-ts))) // -log(1+secondsDiff)
 
-		countScore := float32(math.Log1p(float64(line.Count)))
+		countScore := float32(math.Sqrt(float64(line.Count)))
 		terminalScore := float32(0)
 		if hasTerminal {
-			_, hasCommandInHistory := terminal.CommandsSet[int(id)]
+			_, hasCommandInHistory := terminal.CommandsSet[line.Id]
 			if hasCommandInHistory {
 				terminalScore = scoreOnTerminal
 			}
 		}
 
-		total := tfidf + timeScore + terminalScore + countScore
+		total := tfidf + (5 * timeScore) + terminalScore + countScore
 		score = append(score, scored{id: line.Id, score: total, tfidf: tfidf, timeScore: timeScore, terminalScore: terminalScore, countScore: countScore})
-	}
+
+	})
+
 	sort.Sort(ByScore(score))
 
 	if h.vw != nil {
@@ -318,13 +240,13 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 			topN = len(score)
 		}
 
-		ctx := userContext(text, GetOrDefault(env, "cwd", ""))
+		ctx := UserContext(text, GetOrDefault(env, "cwd", ""))
 		vwi := []*Item{}
 		for i := 0; i < topN; i++ {
 			s := score[i]
 			line := h.Lines[s.id]
 
-			f := line.featurize()
+			f := line.Featurize()
 			f.Add(ctx)
 			f.AddNamespaces(
 				NewNamespace("i_score",
@@ -342,22 +264,26 @@ func (h *History) search(text string, pid int, env map[string]string) string {
 	}
 
 	// pick the first one
+	out := []*HistoryLine{}
 	if len(score) > 0 {
-		s := score[0]
-		line := h.Lines[s.id]
-		log.Debugf("result[%s]: tfidf: %f timeScore: %f terminalScore:%f countScore:%f line:%s", text, s.tfidf, s.timeScore, s.terminalScore, s.countScore, line.Line)
-		return line.Line
+		for _, s := range score {
+			line := h.Lines[s.id]
+			out = append(out, line)
+		}
 	}
-
-	return ""
+	if len(out) > 20 {
+		out = out[:20]
+	}
+	return out
 }
+
 func (h *History) like(line *HistoryLine, env map[string]string) {
 	if h.vw == nil {
 		return
 	}
 
-	ctx := userContext("", GetOrDefault(env, "cwd", ""))
-	f := line.featurize()
+	ctx := UserContext("", GetOrDefault(env, "cwd", ""))
+	f := line.Featurize()
 	f.Add(ctx)
 	f.AddNamespaces(NewNamespace("i_score", NewFeature(fmt.Sprintf("terminalScore=%d", int(scoreOnTerminal)), 0)))
 	h.vw.SendReceive(fmt.Sprintf("1 10 %s", f.ToVW())) // add weight of 10 on the clicked one

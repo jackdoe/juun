@@ -1,5 +1,5 @@
 GOARCH ?= "amd64"
-GOOS ?= "darwin"
+GOOS ?= "linux"
 all:
 	mkdir -p dist
 	cp -p sh/*.sh dist/

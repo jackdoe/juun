@@ -1,14 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/chzyer/readline"
-	. "github.com/jackdoe/juun/common"
 	"os"
 	"strings"
+
+	"github.com/chzyer/readline"
+	. "github.com/jackdoe/juun/common"
 )
 
 func main() {
+	result := []*HistoryLine{}
+	lastQuery := ""
+	currentIndex := 0
+
 	forceInterrupted := false
 	cfg := &readline.Config{
 		Prompt:            " \033[31m»\033[0m ",
@@ -24,12 +30,10 @@ func main() {
 			case readline.CharLineStart:
 				forceInterrupted = true
 				return readline.CharInterrupt, true
-
 			case readline.CharBckSearch:
 				return r, false
 			case readline.CharFwdSearch:
 				return r, false
-
 			}
 
 			return r, true
@@ -42,12 +46,29 @@ func main() {
 	}
 	defer rl.Close()
 
-	result := ""
-
 	cfg.SetListener(func(line []rune, pos int, key rune) (newLine []rune, newPos int, ok bool) {
 		if line != nil {
-			result = QueryService("search", os.Args[1], string(line))
-			rl.SetPrompt(fmt.Sprintf("%s \033[31m»\033[0m ", strings.Replace(result, "\n", "\\n", -1)))
+			currentQuery := string(line)
+			if strings.Trim(lastQuery, " ") == strings.Trim(currentQuery, " ") && len(result) > 0 {
+				currentIndex++
+				r := result[currentIndex%len(result)]
+				rl.SetPrompt(fmt.Sprintf("%s \033[95mϵ\033[0m %d/%d \033[31m»\033[0m ", strings.Replace(r.Line, "\n", "\\n", -1), currentIndex%len(result), len(result)))
+			} else {
+				encoded := QueryService("search", os.Args[1], currentQuery)
+
+				err := json.Unmarshal([]byte(encoded), &result)
+				if err == nil {
+					if len(result) > 0 {
+						lastQuery = currentQuery
+						currentIndex = 0
+						r := result[0]
+						rl.SetPrompt(fmt.Sprintf("%s \033[95mϵ\033[0m %d/%d \033[31m»\033[0m ", strings.Replace(r.Line, "\n", "\\n", -1), currentIndex%len(result), len(result)))
+						lastQuery = currentQuery
+					} else {
+						rl.SetPrompt(fmt.Sprintf("%s \033[31m»\033[0m ", currentQuery))
+					}
+				}
+			}
 		}
 		rl.Refresh()
 		return line, 0, false
@@ -55,7 +76,7 @@ func main() {
 
 	cfg = rl.SetConfig(cfg)
 
-	line, err := rl.Readline()
+	_, err = rl.Readline()
 	rl.Clean()
 	rl.SetPrompt("")
 	exitCode := 0
@@ -66,8 +87,8 @@ func main() {
 	if !forceInterrupted && err != nil {
 		fmt.Fprintf(rl.Stderr(), "")
 	} else {
-		if result == "" {
-			fmt.Fprintf(rl.Stderr(), "%s", line)
+		if len(result) > 0 {
+			fmt.Fprintf(rl.Stderr(), "%s", result[currentIndex%len(result)].Line)
 		} else {
 			fmt.Fprintf(rl.Stderr(), "%s", result)
 		}

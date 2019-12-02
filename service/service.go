@@ -3,21 +3,21 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
-	. "github.com/jackdoe/juun/common"
-	. "github.com/jackdoe/juun/vw"
-	"github.com/sevlyar/go-daemon"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
-	"os/user"
 	"path"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	. "github.com/jackdoe/juun/common"
+	. "github.com/jackdoe/juun/vw"
+	"github.com/sevlyar/go-daemon"
+	log "github.com/sirupsen/logrus"
 )
 
 func oneLine(history *History, c net.Conn) {
@@ -62,7 +62,12 @@ func oneLine(history *History, c net.Conn) {
 	case "search":
 		line := strings.Replace(ctrl.Payload, "\n", "", -1)
 		if len(line) > 0 {
-			out = history.search(line, ctrl.Pid, ctrl.Env)
+			lines := history.search(line, ctrl.Pid, ctrl.Env)
+			j, err := json.Marshal(lines)
+			if err != nil {
+				log.WithError(err).Printf("failed to encode")
+			}
+			out = string(j)
 		}
 	case "up":
 		out = history.up(ctrl.Pid, ctrl.Payload)
@@ -70,7 +75,7 @@ func oneLine(history *History, c net.Conn) {
 		out = history.down(ctrl.Pid, ctrl.Payload)
 	}
 
-	c.Write([]byte(out))
+	_, _ = c.Write([]byte(out))
 
 	c.Close()
 }
@@ -103,17 +108,6 @@ func isRunning(pidFile string) bool {
 		}
 	}
 	return false
-}
-func getHome() string {
-	home := os.Getenv("HOME")
-	if home == "" {
-		usr, err := user.Current()
-		if err != nil {
-			log.Fatal(err)
-		}
-		home = usr.HomeDir
-	}
-	return home
 }
 
 func main() {
@@ -189,7 +183,7 @@ func main() {
 		vw = NewBandit(modelFile) // XXX: can be nil if vw is not found
 	}
 	history.vw = vw
-	syscall.Unlink(socketPath)
+	_ = syscall.Unlink(socketPath)
 	sock, err := net.Listen("unix", socketPath)
 	if err != nil {
 		log.Fatal("Listen error: ", err)
@@ -219,11 +213,11 @@ func main() {
 		sock.Close()
 
 		save()
-		os.Chmod(modelFile, 0600)
+		_ = os.Chmod(modelFile, 0600)
 		if vw != nil {
 			vw.Shutdown()
 		}
-		cntxt.Release()
+		_ = cntxt.Release()
 
 		os.Exit(0)
 	}

@@ -3,10 +3,12 @@ package main
 import (
 	"testing"
 	"time"
+
+	"github.com/jackdoe/juun/common"
 )
 
 func TestTime(t *testing.T) {
-	got := timeToNamespace("i_abc", time.Unix(0, 0)).ToVW()
+	got := common.TimeToNamespace("i_abc", time.Unix(0, 0)).ToVW()
 	expected := "|i_abc year_1970 day_1 month_1 hour_1 "
 	if got != expected {
 		t.Fatalf("wrong time features, expecte: '%s', got '%s'", expected, got)
@@ -34,11 +36,11 @@ func TestHistory(t *testing.T) {
 	if len(h.Lines) != 1 {
 		t.Fatalf("expected only 1 line")
 	}
-	if h.search("m", 1, nil) != "make" {
+	if h.search("m", 1, nil)[0].Line != "make" {
 		t.Fatalf("make not found")
 	}
 
-	if h.search("make", 1, nil) != "make" {
+	if h.search("make", 1, nil)[0].Line != "make" {
 		t.Fatalf("make not found")
 	}
 }
